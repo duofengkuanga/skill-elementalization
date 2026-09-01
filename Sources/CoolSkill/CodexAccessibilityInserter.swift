@@ -50,10 +50,16 @@ final class CodexAccessibilityInserter: SkillInserting {
 
     func insert(invocationName: String) -> Result<InsertionPlan, Error> {
         do {
+            guard let application = codexApplication() else {
+                throw CodexInsertionError.codexNotRunning
+            }
+            guard application.isActive else {
+                throw CodexInsertionError.composerNotFocused
+            }
             guard AXIsProcessTrusted() else {
                 throw CodexInsertionError.permissionRequired
             }
-            let composer = try focusedCodexComposer()
+            let composer = try focusedCodexComposer(in: application)
             let text = try currentText(from: composer)
             let selection = try currentSelection(from: composer)
             let plan = try planner.plan(
@@ -84,13 +90,11 @@ final class CodexAccessibilityInserter: SkillInserting {
         _ = AXIsProcessTrustedWithOptions(options)
     }
 
-    private func focusedCodexComposer() throws -> AXUIElement {
-        let applications = NSRunningApplication.runningApplications(
-            withBundleIdentifier: bundleIdentifier
-        )
-        guard let application = applications.first else {
-            throw CodexInsertionError.codexNotRunning
-        }
+    private func codexApplication() -> NSRunningApplication? {
+        NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first
+    }
+
+    private func focusedCodexComposer(in application: NSRunningApplication) throws -> AXUIElement {
         let appElement = AXUIElementCreateApplication(application.processIdentifier)
         var focusedValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(

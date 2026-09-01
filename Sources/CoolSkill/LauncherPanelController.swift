@@ -14,8 +14,8 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
 
     private let collapsedWidth: CGFloat = 48
     private let collapsedHeight: CGFloat = 212
-    private let listWidth: CGFloat = 390
-    private let listHeight: CGFloat = 420
+    private let listWidth: CGFloat = 320
+    private let listHeight: CGFloat = 340
 
     private(set) var isPinned = false
     var isVisible: Bool { window.isVisible }
@@ -236,8 +236,8 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         let visible = screen?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
         let gap: CGFloat = 8
         let width = min(listWidth, visible.width - 32)
-        let contentHeight = CGFloat(model.visibleSkills.count) * 58 + 64
-        let height = min(max(220, min(listHeight, contentHeight)), visible.height - 32)
+        let contentHeight = CGFloat(model.visibleSkills.count) * 48 + 40
+        let height = min(max(170, min(listHeight, contentHeight)), visible.height - 32)
         let rightSpace = visible.maxX - window.frame.maxX
         let leftSpace = window.frame.minX - visible.minX
         let aboveSpace = visible.maxY - window.frame.maxY

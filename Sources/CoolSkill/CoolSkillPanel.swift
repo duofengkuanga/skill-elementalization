@@ -200,8 +200,8 @@ struct SkillListPanelContent: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 42)
-                    .padding(.vertical, 36)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 18)
                 }
             } else {
                 Color.clear
@@ -272,12 +272,12 @@ private struct SkillRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 18) {
+            HStack(spacing: 12) {
                 Circle()
                     .fill(accentColor.opacity(0.86))
                     .frame(width: 7, height: 7)
                 Text(skill.name)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .lineLimit(1)
                 Spacer(minLength: 12)
                 if skill.usageCount > 0 {
@@ -290,7 +290,7 @@ private struct SkillRow: View {
                 }
             }
             .padding(.horizontal, 12)
-            .frame(height: 50)
+            .frame(height: 42)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 isKeyboardSelected() ? accentColor.opacity(0.13) : (isHovered ? Color.primary.opacity(0.035) : Color.clear),
