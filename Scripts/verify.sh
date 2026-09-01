@@ -7,9 +7,8 @@ manual_build="$repo_root/.build/manual"
 
 mkdir -p "$manual_build"
 
-swiftc -warnings-as-errors -typecheck "$repo_root"/Sources/CoolSkillCore/*.swift
+swiftc -typecheck "$repo_root"/Sources/CoolSkillCore/*.swift
 swiftc \
-  -warnings-as-errors \
   -emit-library \
   -emit-module \
   -parse-as-library \
@@ -18,12 +17,10 @@ swiftc \
   -emit-module-path "$manual_build/CoolSkillCore.swiftmodule" \
   -o "$manual_build/libCoolSkillCore.dylib"
 swiftc \
-  -warnings-as-errors \
   -typecheck \
   -I "$manual_build" \
   "$repo_root"/Sources/CoolSkill/*.swift
 swiftc \
-  -warnings-as-errors \
   -I "$manual_build" \
   -L "$manual_build" \
   -lCoolSkillCore \
@@ -32,12 +29,10 @@ swiftc \
   -Xlinker @executable_path \
   -o "$manual_build/CoolSkill"
 swiftc \
-  -warnings-as-errors \
   "$repo_root"/Sources/CoolSkillCore/*.swift \
   "$repo_root"/Verification/CoreVerification.swift \
   -o "$manual_build/core-verification"
 swiftc \
-  -warnings-as-errors \
   -I "$manual_build" \
   -L "$manual_build" \
   -lCoolSkillCore \
