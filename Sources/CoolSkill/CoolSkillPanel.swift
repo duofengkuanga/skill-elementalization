@@ -72,9 +72,13 @@ struct CoolSkillPanel: View {
     }
 
     private func elementRail(size: CGSize) -> some View {
-        let buttonSide = min(max(28, min(size.width * 0.62, size.height / 6.5)), 76)
+        let inset = min(max(8, size.width * 0.16), 22)
+        let usableHeight = max(1, size.height - inset * 2)
+        let buttonSide = min(max(20, min(size.width * 0.62, usableHeight / 5.6)), 76)
         let glyphSide = buttonSide * 0.48
-        return VStack(spacing: max(8, buttonSide * 0.20)) {
+        let pinHeight = buttonSide * 0.78
+        let gap = max(5, min(26, (usableHeight - pinHeight - buttonSide * 4) / 4))
+        return VStack(spacing: gap) {
             Button(action: onTogglePin) {
                 Image(systemName: model.isPinned ? "pin.fill" : "pin")
                     .font(.system(size: max(12, glyphSide * 0.54), weight: .semibold))
@@ -112,13 +116,9 @@ struct CoolSkillPanel: View {
                     }
                     return true
                 }
-                if element != elementOrder.last {
-                    Spacer(minLength: 0)
-                }
             }
-            Spacer(minLength: 0)
         }
-        .padding(max(8, size.width * 0.16))
+        .padding(inset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background {
             ZStack {

@@ -50,12 +50,7 @@ final class CodexAccessibilityInserter: SkillInserting {
 
     func insert(invocationName: String) -> Result<InsertionPlan, Error> {
         do {
-            guard let application = codexApplication() else {
-                throw CodexInsertionError.codexNotRunning
-            }
-            guard application.isActive else {
-                throw CodexInsertionError.composerNotFocused
-            }
+            let application = try launchAndActivateCodex()
             guard AXIsProcessTrusted() else {
                 throw CodexInsertionError.permissionRequired
             }
@@ -94,6 +89,23 @@ final class CodexAccessibilityInserter: SkillInserting {
         NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first
     }
 
+    private func launchAndActivateCodex() throws -> NSRunningApplication {
+        if codexApplication() == nil,
+           let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
+            let deadline = Date().addingTimeInterval(2)
+            while Date() < deadline, codexApplication() == nil {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            }
+        }
+        guard let application = codexApplication() else {
+            throw CodexInsertionError.codexNotRunning
+        }
+        application.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        return application
+    }
+
     private func focusedCodexComposer(in application: NSRunningApplication) throws -> AXUIElement {
         let appElement = AXUIElementCreateApplication(application.processIdentifier)
         var focusedValue: CFTypeRef?
@@ -105,17 +117,22 @@ final class CodexAccessibilityInserter: SkillInserting {
         let focusedValue else {
             throw CodexInsertionError.composerNotFocused
         }
-        guard CFGetTypeID(focusedValue) == AXUIElementGetTypeID() else {
-            throw CodexInsertionError.composerNotFocused
+        if CFGetTypeID(focusedValue) == AXUIElementGetTypeID(),
+           let element = writableComposer(from: focusedValue as! AXUIElement) {
+            return element
         }
-        let element = focusedValue as! AXUIElement
+        if let composer = findWritableComposer(in: appElement) {
+            _ = AXUIElementSetAttributeValue(composer, kAXFocusedAttribute as CFString, true as CFTypeRef)
+            return composer
+        }
+        throw CodexInsertionError.composerNotFocused
+    }
 
+    private func writableComposer(from element: AXUIElement) -> AXUIElement? {
         var roleValue: CFTypeRef?
         _ = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
         let role = roleValue as? String
-        guard role == kAXTextAreaRole as String || role == kAXTextFieldRole as String else {
-            throw CodexInsertionError.composerNotFocused
-        }
+        guard role == kAXTextAreaRole as String || role == kAXTextFieldRole as String else { return nil }
 
         var isSettable: DarwinBoolean = false
         guard AXUIElementIsAttributeSettable(
@@ -123,19 +140,26 @@ final class CodexAccessibilityInserter: SkillInserting {
             kAXValueAttribute as CFString,
             &isSettable
         ) == .success,
-        isSettable.boolValue else {
-            throw CodexInsertionError.composerNotWritable
-        }
+        isSettable.boolValue else { return nil }
         var selectionIsSettable: DarwinBoolean = false
         guard AXUIElementIsAttributeSettable(
             element,
             kAXSelectedTextRangeAttribute as CFString,
             &selectionIsSettable
         ) == .success,
-        selectionIsSettable.boolValue else {
-            throw CodexInsertionError.composerNotWritable
-        }
+        selectionIsSettable.boolValue else { return nil }
         return element
+    }
+
+    private func findWritableComposer(in root: AXUIElement) -> AXUIElement? {
+        if let composer = writableComposer(from: root) { return composer }
+        var childrenValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(root, kAXChildrenAttribute as CFString, &childrenValue) == .success,
+              let children = childrenValue as? [AXUIElement] else { return nil }
+        for child in children {
+            if let composer = findWritableComposer(in: child) { return composer }
+        }
+        return nil
     }
 
     private func currentText(from element: AXUIElement) throws -> String {
