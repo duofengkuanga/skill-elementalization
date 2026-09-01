@@ -66,6 +66,13 @@ struct CoolSkillPanel: View {
             model.refreshUsage()
             synchronizePresentation(with: model.selectedElement)
         }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 120_000_000_000)
+                guard !Task.isCancelled else { return }
+                model.refreshUsage()
+            }
+        }
         .onChange(of: model.selectedElement) { selectedElement in
             synchronizePresentation(with: selectedElement)
         }
@@ -204,10 +211,20 @@ struct SkillListPanelContent: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
+            if let selectedElement = model.selectedElement {
+                Text(selectedElement.chineseDefinition)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                Divider().opacity(0.45)
+            }
             if let selectedElement = model.selectedElement, !model.visibleSkills.isEmpty {
                 ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 8) {
+                    LazyVStack(spacing: 2) {
                         ForEach(model.visibleSkills) { skill in
                             SkillRow(skill: skill, accentColor: selectedElement.color(for: colorScheme)) {
                                 _ = model.invoke(skill)
@@ -218,8 +235,8 @@ struct SkillListPanelContent: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 18)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
                 }
             } else {
                 Color.clear
@@ -292,13 +309,19 @@ private struct SkillRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Circle()
                     .fill(accentColor.opacity(0.86))
                     .frame(width: 7, height: 7)
-                Text(skill.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(skill.name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
+                    Text(skill.chineseSummary)
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 Spacer(minLength: 12)
                 if skill.usageCount > 0 {
                     Text("\(skill.usageCount)")
@@ -310,7 +333,7 @@ private struct SkillRow: View {
                 }
             }
             .padding(.horizontal, 12)
-            .frame(height: 42)
+            .frame(height: 44)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 isKeyboardSelected() ? accentColor.opacity(0.13) : (isHovered ? Color.primary.opacity(0.035) : Color.clear),

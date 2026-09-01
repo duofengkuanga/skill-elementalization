@@ -7,6 +7,7 @@ CoolSkill 是一个 Apple Silicon/macOS 15+ 原生桌面 App。它只读取 `~/.
 - 仅扫描 `~/.agents/skills`，不混入 `.codex` 或插件目录；
 - 风火水山规则分类、拖拽/右键人工归类和永久状态；
 - 从 Codex 本地 rollout 重建显式、自动和子代理 Skill 使用；
+- App 运行期间每两分钟自动刷新一次使用次数；Skill 目录在启动及手动“更新 Skills”时重扫；
 - `Command + D + P` 三键监听与 150ms `Command + D` 回放；
 - 启动即显示可缩放的技能库主窗口；初始不展开任何元素，悬停左侧图标后显示对应列表；
 - 左栏底部保留 Pin，作为窗口置顶开关；手动更新位于设置页；
