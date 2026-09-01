@@ -15,7 +15,7 @@ enum LifecycleVerification {
                          "Expected visible CoolSkill main window")
             precondition(delegate.applicationMenuTitles.contains("设置…"))
             precondition(delegate.applicationMenuTitles.contains("检查更新…"))
-            precondition(delegate.applicationMenuTitles.contains("窗口置顶"))
+            precondition(!delegate.applicationMenuTitles.contains("窗口置顶"))
             print("AppKit lifecycle passed: compact CoolSkill window and application menu are configured.")
             app.terminate(nil)
         }

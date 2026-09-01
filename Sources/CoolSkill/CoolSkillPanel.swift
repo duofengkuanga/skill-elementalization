@@ -31,17 +31,19 @@ struct CoolSkillPanel: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            elementRail
-            if let message = model.insertionMessage {
-                Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(2)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.thickMaterial, in: Capsule())
-                    .padding(.bottom, 14)
+        GeometryReader { proxy in
+            ZStack(alignment: .bottom) {
+                elementRail(size: proxy.size)
+                if let message = model.insertionMessage {
+                    Label(message, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .lineLimit(2)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(.thickMaterial, in: Capsule())
+                        .padding(.bottom, 14)
+                }
             }
         }
         .background {
@@ -69,13 +71,25 @@ struct CoolSkillPanel: View {
         }
     }
 
-    private var elementRail: some View {
-        VStack(spacing: 11) {
+    private func elementRail(size: CGSize) -> some View {
+        let buttonSide = min(max(34, size.width * 0.62), 76)
+        let glyphSide = buttonSide * 0.48
+        return VStack(spacing: max(8, buttonSide * 0.20)) {
+            Button(action: onTogglePin) {
+                Image(systemName: model.isPinned ? "pin.fill" : "pin")
+                    .font(.system(size: max(12, glyphSide * 0.54), weight: .semibold))
+                    .frame(width: buttonSide, height: buttonSide * 0.78)
+                    .foregroundStyle(model.isPinned ? Color.accentColor : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help(model.isPinned ? "取消窗口置顶" : "窗口置顶")
             ForEach(elementOrder) { element in
                 ElementButton(
                     element: element,
                     isSelected: model.selectedElement == element,
                     color: element.color(for: colorScheme),
+                    side: buttonSide,
+                    glyphSide: glyphSide,
                     action: { revealList(for: element) }
                 )
                 .onHover { hovering in
@@ -98,10 +112,14 @@ struct CoolSkillPanel: View {
                     }
                     return true
                 }
+                if element != elementOrder.last {
+                    Spacer(minLength: 0)
+                }
             }
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 18)
-        .frame(width: 48, alignment: .top)
+        .padding(max(8, size.width * 0.16))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background {
             ZStack {
                 Rectangle().fill(.thinMaterial)
@@ -236,13 +254,15 @@ private struct ElementButton: View {
     let element: Element
     let isSelected: Bool
     let color: Color
+    let side: CGFloat
+    let glyphSide: CGFloat
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             ElementGlyph(element: element, color: color)
-                .frame(width: 17, height: 17)
-                .frame(width: 34, height: 34)
+                .frame(width: glyphSide, height: glyphSide)
+                .frame(width: side, height: side)
                 .background(isSelected ? color.opacity(0.13) : Color.clear)
                 .overlay {
                     if isSelected {

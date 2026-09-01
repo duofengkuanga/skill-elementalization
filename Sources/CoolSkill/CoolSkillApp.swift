@@ -7,7 +7,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppContainer.shared.model
     private var windowController: SkillLibraryWindowController?
     private var chordMonitor: GlobalChordMonitor?
-    private var pinMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -65,9 +64,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applicationMenu.addItem(withTitle: "检查更新…", action: #selector(checkForUpdates), keyEquivalent: "")
         applicationMenu.addItem(withTitle: "更新 Skills", action: #selector(refreshSkills), keyEquivalent: "")
         applicationMenu.addItem(.separator())
-        let pin = applicationMenu.addItem(withTitle: "窗口置顶", action: #selector(togglePinned), keyEquivalent: "")
-        pinMenuItem = pin
-        applicationMenu.addItem(.separator())
         applicationMenu.addItem(withTitle: "退出 CoolSkill", action: #selector(quit), keyEquivalent: "q")
         for item in applicationMenu.items where !item.isSeparatorItem {
             item.target = self
@@ -122,25 +118,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func togglePinned() {
-        windowController?.togglePinned()
-        updatePinMenuItem()
-    }
-
     @objc private func quit() {
         NSApp.terminate(nil)
     }
 
-    private func updatePinMenuItem() {
-        guard let pinMenuItem else { return }
-        pinMenuItem.state = windowController?.isPinned == true ? .on : .off
-    }
-}
-
-extension AppDelegate: NSMenuDelegate {
-    func menuWillOpen(_ menu: NSMenu) {
-        updatePinMenuItem()
-    }
 }
 
 #if !COOLSKILL_LIFECYCLE_TEST

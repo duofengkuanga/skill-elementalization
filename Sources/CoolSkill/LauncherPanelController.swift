@@ -12,8 +12,8 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
     private var dismissListTask: Task<Void, Never>?
     private var isSnapping = false
 
-    private let collapsedWidth: CGFloat = 48
-    private let collapsedHeight: CGFloat = 212
+    private let collapsedWidth: CGFloat = 72
+    private let collapsedHeight: CGFloat = 260
     private let listWidth: CGFloat = 320
     private let listHeight: CGFloat = 340
 
@@ -75,7 +75,7 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
     private func makeWindow() -> NSWindow {
         let newWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: collapsedWidth, height: collapsedHeight),
-            styleMask: [.borderless],
+            styleMask: [.borderless, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -86,8 +86,8 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         newWindow.isOpaque = false
         newWindow.backgroundColor = .clear
         newWindow.isReleasedWhenClosed = false
-        newWindow.minSize = NSSize(width: collapsedWidth, height: collapsedHeight)
-        newWindow.maxSize = NSSize(width: collapsedWidth, height: collapsedHeight)
+        newWindow.minSize = NSSize(width: 56, height: 220)
+        newWindow.maxSize = NSSize(width: 180, height: 900)
         newWindow.isMovableByWindowBackground = true
         newWindow.contentView = NSHostingView(
             rootView: CoolSkillPanel(
