@@ -43,6 +43,10 @@ swift test
 swift build
 ```
 
+## 免费安装
+
+GitHub Release 提供 `CoolSkill-<version>-macos-arm64.zip`。解压后把 `CoolSkill.app` 移到“应用程序”文件夹；首次打开时，macOS 可能要求在“隐私与安全性”中确认打开。当前免费构建未使用 Developer ID 签名，因此每次更新后可能需要重新授予辅助功能和输入监听权限。
+
 本机当前没有完整 Xcode，因此 `xcodebuild` 与 XCTest 尚不是可运行验证门；对应测试源码已经保留。
 
 ## 隐私与边界
