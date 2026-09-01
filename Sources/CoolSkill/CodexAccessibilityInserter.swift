@@ -62,10 +62,9 @@ final class CodexAccessibilityInserter: SkillInserting {
                 selection: selection,
                 invocationName: invocationName
             )
-            try apply(
+            try typeLikeUser(
                 plan,
                 to: composer,
-                originalText: text,
                 originalSelection: selection
             )
             return .success(plan)
@@ -242,4 +241,36 @@ final class CodexAccessibilityInserter: SkillInserting {
         }
     }
 
+    private func typeLikeUser(
+        _ plan: InsertionPlan,
+        to element: AXUIElement,
+        originalSelection: TextSelection
+    ) throws {
+        var insertionRange = CFRange(location: originalSelection.location, length: 0)
+        guard let rangeValue = AXValueCreate(.cfRange, &insertionRange),
+              AXUIElementSetAttributeValue(
+                element,
+                kAXSelectedTextRangeAttribute as CFString,
+                rangeValue
+              ) == .success,
+              let source = CGEventSource(stateID: .hidSystemState),
+              let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
+            throw CodexInsertionError.selectionUnavailable
+        }
+
+        var characters = Array(plan.insertedText.utf16)
+        characters.withUnsafeMutableBufferPointer { buffer in
+            guard let baseAddress = buffer.baseAddress else { return }
+            down.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: baseAddress)
+            up.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: baseAddress)
+        }
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.08))
+
+        guard let updatedText = try? currentText(from: element), updatedText == plan.text else {
+            throw CodexInsertionError.writeFailed(.failure)
+        }
+    }
 }
