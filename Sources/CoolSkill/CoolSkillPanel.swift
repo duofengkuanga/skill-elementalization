@@ -303,8 +303,6 @@ private struct SkillRow: View {
     let moveAction: (Element) -> Void
     let isKeyboardSelected: () -> Bool
 
-    @State private var showsDetail = false
-    @State private var hoverTask: Task<Void, Never>?
     @State private var isHovered = false
 
     var body: some View {
@@ -355,32 +353,6 @@ private struct SkillRow: View {
         }
         .onHover { hovering in
             isHovered = hovering
-            hoverTask?.cancel()
-            if hovering {
-                hoverTask = Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                    guard !Task.isCancelled else { return }
-                    showsDetail = true
-                }
-            } else {
-                showsDetail = false
-            }
-        }
-        .popover(isPresented: $showsDetail, arrowEdge: .trailing) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(skill.name)
-                    .font(.headline)
-                Text(skill.summary.isEmpty ? "无描述" : skill.summary)
-                    .font(.body)
-                Divider()
-                Text("使用次数：\(skill.usageCount)")
-                Text(skill.source)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-            }
-            .padding(14)
-            .frame(width: 300, alignment: .leading)
         }
     }
 }
