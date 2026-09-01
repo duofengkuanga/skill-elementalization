@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="CoolSkill">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffefa"/>
+      <stop offset="1" stop-color="#edece6"/>
+    </linearGradient>
+  </defs>
+  <rect x="72" y="72" width="880" height="880" rx="210" fill="url(#bg)"/>
+  <rect x="74" y="74" width="876" height="876" rx="208" fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="4"/>
+  <!-- Outside to inside: fire, mountain, wind, water. -->
+  <path d="M180 824 A660 660 0 0 1 840 164 L840 254 A570 570 0 0 0 270 824Z" fill="#ff6b4a"/>
+  <path d="M270 824 A570 570 0 0 1 840 254 L840 344 A480 480 0 0 0 360 824Z" fill="#c4a36b"/>
+  <path d="M360 824 A480 480 0 0 1 840 344 L840 434 A390 390 0 0 0 450 824Z" fill="#61d6bd"/>
+  <path d="M450 824 A390 390 0 0 1 840 434 L840 524 A300 300 0 0 0 540 824Z" fill="#5c9eff"/>
+</svg>
