@@ -1,0 +1,39 @@
+name: Release CoolSkill
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+
+    steps:
+      - name: Check out tag
+        uses: actions/checkout@v4
+
+      - name: Build ARM64 app
+        run: Scripts/build-app.sh
+
+      - name: Package release archive
+        run: |
+          tag_name="${GITHUB_REF_NAME}"
+          archive="CoolSkill-${tag_name#v}-macos-arm64.zip"
+          ditto -c -k --sequesterRsrc --keepParent .build/CoolSkill.app ".build/${archive}"
+          shasum -a 256 ".build/${archive}" > ".build/${archive}.sha256"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag_name="${GITHUB_REF_NAME}"
+          archive="CoolSkill-${tag_name#v}-macos-arm64.zip"
+          gh release create "$tag_name" \
+            ".build/${archive}" \
+            ".build/${archive}.sha256" \
+            --title "CoolSkill ${tag_name#v}" \
+            --notes "免费未公证构建。首次打开如被 macOS 拦截，请在“隐私与安全性”选择仍要打开；每次更新后可能需要重新授予辅助功能和输入监听权限。"
