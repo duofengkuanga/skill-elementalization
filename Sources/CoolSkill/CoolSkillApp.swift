@@ -1,5 +1,6 @@
 import AppKit
 import CoolSkillCore
+import Foundation
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -61,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applicationMenu.addItem(withTitle: "关于 CoolSkill", action: #selector(showAbout), keyEquivalent: "")
         applicationMenu.addItem(.separator())
         applicationMenu.addItem(withTitle: "设置…", action: #selector(showSettings), keyEquivalent: ",")
+        applicationMenu.addItem(withTitle: "检查更新…", action: #selector(checkForUpdates), keyEquivalent: "")
         applicationMenu.addItem(withTitle: "更新 Skills", action: #selector(refreshSkills), keyEquivalent: "")
         applicationMenu.addItem(.separator())
         let pin = applicationMenu.addItem(withTitle: "窗口置顶", action: #selector(togglePinned), keyEquivalent: "")
@@ -85,6 +87,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func refreshSkills() {
         model.refreshCatalog()
+    }
+
+    @objc private func checkForUpdates() {
+        let currentVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+        Task { @MainActor in
+            let result = await GitHubUpdateChecker().check(currentVersion: currentVersion)
+            let alert = NSAlert()
+            alert.messageText = "检查更新"
+            switch result {
+            case .upToDate:
+                alert.informativeText = "CoolSkill 已是最新版本（\(currentVersion)）。"
+                alert.addButton(withTitle: "好")
+                alert.runModal()
+            case let .available(release):
+                alert.informativeText = "发现新版本 \(release.tagName)。下载后替换“应用程序”文件夹中的 CoolSkill 即可完成更新。"
+                alert.addButton(withTitle: "前往下载")
+                alert.addButton(withTitle: "稍后")
+                if alert.runModal() == .alertFirstButtonReturn {
+                    NSWorkspace.shared.open(release.htmlURL)
+                }
+            case .failed:
+                alert.informativeText = "暂时无法连接 GitHub 检查更新，请稍后重试。"
+                alert.addButton(withTitle: "好")
+                alert.runModal()
+            }
+        }
     }
 
     @objc private func togglePinned() {

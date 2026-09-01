@@ -14,6 +14,7 @@ enum LifecycleVerification {
             precondition(app.windows.contains { $0.isVisible && $0.title == "CoolSkill" },
                          "Expected visible CoolSkill main window")
             precondition(delegate.applicationMenuTitles.contains("设置…"))
+            precondition(delegate.applicationMenuTitles.contains("检查更新…"))
             precondition(delegate.applicationMenuTitles.contains("窗口置顶"))
             print("AppKit lifecycle passed: compact CoolSkill window and application menu are configured.")
             app.terminate(nil)
