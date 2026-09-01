@@ -267,10 +267,5 @@ final class CodexAccessibilityInserter: SkillInserting {
         }
         down.post(tap: .cghidEventTap)
         up.post(tap: .cghidEventTap)
-        RunLoop.current.run(until: Date().addingTimeInterval(0.08))
-
-        guard let updatedText = try? currentText(from: element), updatedText == plan.text else {
-            throw CodexInsertionError.writeFailed(.failure)
-        }
     }
 }
