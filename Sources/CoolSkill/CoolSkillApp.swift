@@ -57,7 +57,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mainMenu = NSMenu()
         let applicationItem = NSMenuItem(title: "CoolSkill", action: nil, keyEquivalent: "")
         let applicationMenu = NSMenu(title: "CoolSkill")
-        applicationMenu.delegate = self
         applicationMenu.addItem(withTitle: "关于 CoolSkill", action: #selector(showAbout), keyEquivalent: "")
         applicationMenu.addItem(.separator())
         applicationMenu.addItem(withTitle: "设置…", action: #selector(showSettings), keyEquivalent: ",")
