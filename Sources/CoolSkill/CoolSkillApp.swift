@@ -102,10 +102,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 alert.runModal()
             case let .available(release):
                 alert.informativeText = "发现新版本 \(release.tagName)。下载后替换“应用程序”文件夹中的 CoolSkill 即可完成更新。"
-                alert.addButton(withTitle: "前往下载")
+                alert.addButton(withTitle: "下载并更新")
                 alert.addButton(withTitle: "稍后")
                 if alert.runModal() == .alertFirstButtonReturn {
-                    NSWorkspace.shared.open(release.htmlURL)
+                    do {
+                        try await SelfUpdateInstaller.install(release)
+                        NSApp.terminate(nil)
+                    } catch {
+                        let failure = NSAlert(error: error)
+                        failure.informativeText = "自动更新失败；已保留当前版本。你可以前往 Release 页面手动下载。"
+                        failure.runModal()
+                    }
                 }
             case .failed:
                 alert.informativeText = "暂时无法连接 GitHub 检查更新，请稍后重试。"
