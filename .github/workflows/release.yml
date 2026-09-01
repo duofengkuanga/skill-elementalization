@@ -1,6 +1,7 @@
 name: Release CoolSkill
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
