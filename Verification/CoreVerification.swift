@@ -237,14 +237,14 @@ struct CoreVerification {
                 selection: TextSelection(location: 3, length: 0),
                 invocationName: "CodeReview"
             )
-            precondition(chinese.text == "请帮我 /CodeReview 检查模块")
+            precondition(chinese.text == "请帮我 $CodeReview 检查模块")
 
             let unicode = try InsertionPlanner().plan(
                 currentText: "A😀B",
                 selection: TextSelection(location: 3, length: 0),
                 invocationName: "Retro"
             )
-            precondition(unicode.text == "A😀 /Retro B")
+            precondition(unicode.text == "A😀 $Retro B")
         } catch {
             preconditionFailure("Insertion planning verification failed: \(error)")
         }

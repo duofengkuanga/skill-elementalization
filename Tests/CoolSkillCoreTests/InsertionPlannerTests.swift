@@ -9,8 +9,8 @@ final class InsertionPlannerTests: XCTestCase {
             invocationName: "Wayfinder"
         )
 
-        XCTAssertEqual(plan.text, "/Wayfinder")
-        XCTAssertEqual(plan.insertedText, "/Wayfinder")
+        XCTAssertEqual(plan.text, "$Wayfinder")
+        XCTAssertEqual(plan.insertedText, "$Wayfinder")
         XCTAssertEqual(plan.selection, TextSelection(location: 10, length: 0))
     }
 
@@ -21,7 +21,7 @@ final class InsertionPlannerTests: XCTestCase {
             invocationName: "CodeReview"
         )
 
-        XCTAssertEqual(plan.text, "请帮我 /CodeReview 检查模块")
+        XCTAssertEqual(plan.text, "请帮我 $CodeReview 检查模块")
         XCTAssertEqual(plan.selection.length, 0)
     }
 
@@ -32,7 +32,7 @@ final class InsertionPlannerTests: XCTestCase {
             invocationName: "Retro"
         )
 
-        XCTAssertEqual(plan.text, "review /Retro this")
+        XCTAssertEqual(plan.text, "review $Retro this")
         XCTAssertTrue(plan.text.contains("this"))
     }
 
@@ -43,7 +43,7 @@ final class InsertionPlannerTests: XCTestCase {
             invocationName: "Retro"
         )
 
-        XCTAssertEqual(plan.text, "hello /Retro world")
+        XCTAssertEqual(plan.text, "hello $Retro world")
     }
 
     func testSupportsUnicodeUTF16Selection() throws {
@@ -53,6 +53,6 @@ final class InsertionPlannerTests: XCTestCase {
             invocationName: "Retro"
         )
 
-        XCTAssertEqual(plan.text, "A😀 /Retro B")
+        XCTAssertEqual(plan.text, "A😀 $Retro B")
     }
 }

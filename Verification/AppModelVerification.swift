@@ -41,9 +41,9 @@ struct AppModelVerification {
             .appendingPathComponent("coolskill-model-\(UUID().uuidString)", isDirectory: true)
         let store = LocalStateStore(fileURL: root.appendingPathComponent("state.json"))
         let successPlan = InsertionPlan(
-            text: "/Retro",
+            text: "$Retro",
             selection: TextSelection(location: 6, length: 0),
-            insertedText: "/Retro"
+            insertedText: "$Retro"
         )
         let inserter = FakeInserter(result: .success(successPlan))
         let loginManager = FakeLoginItemManager()

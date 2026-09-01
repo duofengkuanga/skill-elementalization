@@ -68,7 +68,6 @@ final class CodexAccessibilityInserter: SkillInserting {
                 originalText: text,
                 originalSelection: selection
             )
-            dismissSkillContinuation()
             return .success(plan)
         } catch {
             return .failure(error)
@@ -243,14 +242,4 @@ final class CodexAccessibilityInserter: SkillInserting {
         }
     }
 
-    private func dismissSkillContinuation() {
-        RunLoop.current.run(until: Date().addingTimeInterval(0.08))
-        guard let source = CGEventSource(stateID: .hidSystemState),
-              let down = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: true),
-              let up = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: false) else {
-            return
-        }
-        down.post(tap: .cghidEventTap)
-        up.post(tap: .cghidEventTap)
-    }
 }

@@ -7,9 +7,9 @@ private final class PreviewInserter: SkillInserting {
     func insert(invocationName: String) -> Result<InsertionPlan, Error> {
         .success(
             InsertionPlan(
-                text: "/\(invocationName)",
+                text: "$\(invocationName)",
                 selection: TextSelection(location: invocationName.utf16.count + 1, length: 0),
-                insertedText: "/\(invocationName)"
+                insertedText: "$\(invocationName)"
             )
         )
     }
