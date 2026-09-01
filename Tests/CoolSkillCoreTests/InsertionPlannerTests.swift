@@ -2,6 +2,18 @@ import CoolSkillCore
 import XCTest
 
 final class InsertionPlannerTests: XCTestCase {
+    func testPlacesCursorImmediatelyAfterSkillForEmptyComposer() throws {
+        let plan = try InsertionPlanner().plan(
+            currentText: "",
+            selection: TextSelection(location: 0, length: 0),
+            invocationName: "Wayfinder"
+        )
+
+        XCTAssertEqual(plan.text, "/Wayfinder")
+        XCTAssertEqual(plan.insertedText, "/Wayfinder")
+        XCTAssertEqual(plan.selection, TextSelection(location: 10, length: 0))
+    }
+
     func testInsertsAtCursorWithoutOverwritingText() throws {
         let plan = try InsertionPlanner().plan(
             currentText: "请帮我检查模块",

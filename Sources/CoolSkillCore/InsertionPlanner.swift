@@ -63,7 +63,7 @@ public struct InsertionPlanner: Sendable {
         let prefix = String(currentText[..<insertionIndex])
         let suffix = String(currentText[insertionIndex...])
         let needsLeadingSpace = prefix.last.map { !$0.isWhitespace } ?? false
-        let needsTrailingSpace = suffix.first.map { !$0.isWhitespace } ?? true
+        let needsTrailingSpace = suffix.first.map { !$0.isWhitespace } ?? false
         let insertedText = (needsLeadingSpace ? " " : "")
             + "/\(commandName)"
             + (needsTrailingSpace ? " " : "")
