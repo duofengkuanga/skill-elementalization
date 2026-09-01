@@ -13,7 +13,7 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
     private var isSnapping = false
 
     private let collapsedWidth: CGFloat = 72
-    private let collapsedHeight: CGFloat = 260
+    private let collapsedHeight: CGFloat = 420
     private let listWidth: CGFloat = 320
     private let listHeight: CGFloat = 340
 
@@ -86,7 +86,7 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         newWindow.isOpaque = false
         newWindow.backgroundColor = .clear
         newWindow.isReleasedWhenClosed = false
-        newWindow.minSize = NSSize(width: 56, height: 220)
+        newWindow.minSize = NSSize(width: 56, height: 300)
         newWindow.maxSize = NSSize(width: 180, height: 900)
         newWindow.isMovableByWindowBackground = true
         newWindow.contentView = NSHostingView(

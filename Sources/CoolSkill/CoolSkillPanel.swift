@@ -72,7 +72,7 @@ struct CoolSkillPanel: View {
     }
 
     private func elementRail(size: CGSize) -> some View {
-        let buttonSide = min(max(34, size.width * 0.62), 76)
+        let buttonSide = min(max(28, min(size.width * 0.62, size.height / 6.5)), 76)
         let glyphSide = buttonSide * 0.48
         return VStack(spacing: max(8, buttonSide * 0.20)) {
             Button(action: onTogglePin) {
@@ -139,12 +139,12 @@ struct CoolSkillPanel: View {
         case (.fire?, .light): return Color(red: 1.00, green: 0.88, blue: 0.84).opacity(0.82)
         case (.water?, .light): return Color(red: 0.84, green: 0.91, blue: 1.00).opacity(0.82)
         case (.mountain?, .light): return Color(red: 0.99, green: 0.93, blue: 0.78).opacity(0.82)
-        case (nil, .light): return Color(red: 0.86, green: 0.92, blue: 1.00).opacity(0.80)
+        case (nil, .light): return .clear
         case (.wind?, .dark): return Color(red: 0.06, green: 0.22, blue: 0.17).opacity(0.84)
         case (.fire?, .dark): return Color(red: 0.25, green: 0.10, blue: 0.07).opacity(0.84)
         case (.water?, .dark): return Color(red: 0.06, green: 0.14, blue: 0.29).opacity(0.84)
         case (.mountain?, .dark): return Color(red: 0.22, green: 0.16, blue: 0.07).opacity(0.84)
-        case (nil, .dark): return Color(red: 0.08, green: 0.13, blue: 0.22).opacity(0.80)
+        case (nil, .dark): return .clear
         @unknown default: return Color(nsColor: .windowBackgroundColor)
         }
     }
@@ -155,12 +155,12 @@ struct CoolSkillPanel: View {
         case (.fire?, .light): return Color(red: 1.00, green: 0.62, blue: 0.54).opacity(0.44)
         case (.water?, .light): return Color(red: 0.51, green: 0.70, blue: 1.00).opacity(0.44)
         case (.mountain?, .light): return Color(red: 0.85, green: 0.66, blue: 0.35).opacity(0.44)
-        case (nil, .light): return Color(red: 0.61, green: 0.74, blue: 0.98).opacity(0.40)
+        case (nil, .light): return .clear
         case (.wind?, .dark): return Color(red: 0.15, green: 0.54, blue: 0.42).opacity(0.56)
         case (.fire?, .dark): return Color(red: 0.68, green: 0.24, blue: 0.16).opacity(0.56)
         case (.water?, .dark): return Color(red: 0.18, green: 0.37, blue: 0.78).opacity(0.56)
         case (.mountain?, .dark): return Color(red: 0.55, green: 0.38, blue: 0.15).opacity(0.56)
-        case (nil, .dark): return Color(red: 0.20, green: 0.31, blue: 0.52).opacity(0.52)
+        case (nil, .dark): return .clear
         @unknown default: return Color(nsColor: .underPageBackgroundColor)
         }
     }
