@@ -15,7 +15,6 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
     private let collapsedWidth: CGFloat = 48
     private let collapsedHeight: CGFloat = 260
     private let listWidth: CGFloat = 300
-    private let listHeight: CGFloat = 300
 
     private(set) var isPinned = false
     var isVisible: Bool { window.isVisible }
@@ -190,7 +189,7 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
 
     private func makeListPanel() -> NSPanel {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: listWidth, height: listHeight),
+            contentRect: NSRect(x: 0, y: 0, width: listWidth, height: collapsedHeight),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -236,8 +235,7 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         let visible = screen?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
         let gap: CGFloat = 8
         let width = min(listWidth, visible.width - 32)
-        let contentHeight = CGFloat(model.visibleSkills.count) * 46 + 72
-        let height = min(max(160, min(listHeight, contentHeight)), visible.height - 32)
+        let height = min(collapsedHeight, visible.height - 32)
         let rightSpace = visible.maxX - window.frame.maxX
         let leftSpace = window.frame.minX - visible.minX
         let aboveSpace = visible.maxY - window.frame.maxY
