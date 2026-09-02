@@ -12,8 +12,8 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
     private var dismissListTask: Task<Void, Never>?
     private var isSnapping = false
 
-    private let collapsedWidth: CGFloat = 64
-    private let collapsedHeight: CGFloat = 340
+    private let collapsedWidth: CGFloat = 56
+    private let collapsedHeight: CGFloat = 300
     private let listWidth: CGFloat = 300
     private let listHeight: CGFloat = 300
 
