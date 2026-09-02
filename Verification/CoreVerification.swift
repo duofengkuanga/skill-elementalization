@@ -22,10 +22,11 @@ struct CoreVerification {
         precondition(state.visibleSkills.first?.usageCount == 8)
 
         let classifier = ElementClassifier()
-        precondition(classifier.classify(name: "browser-control", description: "").element == .wind)
+        precondition(classifier.classify(name: "browser-control", description: "").element == .fire)
         precondition(classifier.classify(name: "frontend-design", description: "").element == .fire)
         precondition(classifier.classify(name: "deep-research", description: "").element == .water)
         precondition(classifier.classify(name: "code-review", description: "").element == .mountain)
+        precondition(classifier.classify(name: "handoff", description: "Send context").element == .wind)
 
         do {
             let parsed = try SkillDocumentParser().parse(contents: """
@@ -56,6 +57,10 @@ struct CoreVerification {
         if CommandLine.arguments.contains("--catalog") {
             let result = SkillCatalog.defaultCatalog().scan()
             print("Catalog skills: \(result.skills.count), issues: \(result.issues.count)")
+            for element in Element.allCases {
+                let names = result.skills.filter { $0.element == element }.map(\.invocationName)
+                print("\(element.rawValue): \(names.joined(separator: ", "))")
+            }
             precondition(!result.skills.isEmpty)
         }
 

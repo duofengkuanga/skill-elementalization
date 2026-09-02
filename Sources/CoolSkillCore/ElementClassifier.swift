@@ -14,13 +14,21 @@ public struct ClassificationResult: Equatable, Sendable {
 
 public struct ElementClassifier: Sendable {
     private let terms: [Element: [String]]
+    private let responsibilityOverrides: [String: Element]
 
-    public init(terms: [Element: [String]] = ElementClassifier.defaultTerms) {
+    public init(
+        terms: [Element: [String]] = ElementClassifier.defaultTerms,
+        responsibilityOverrides: [String: Element] = ElementClassifier.defaultResponsibilityOverrides
+    ) {
         self.terms = terms
+        self.responsibilityOverrides = responsibilityOverrides
     }
 
     public func classify(name: String, description: String, headings: [String] = []) -> ClassificationResult {
         let normalizedName = normalize(name)
+        if let element = responsibilityOverrides[normalizedName] {
+            return ClassificationResult(element: element, score: 100, isLowConfidence: false)
+        }
         let normalizedDescription = normalize(description)
         let normalizedHeadings = normalize(headings.joined(separator: " "))
         var scores = Dictionary(uniqueKeysWithValues: Element.allCases.map { ($0, 0) })
@@ -44,10 +52,11 @@ public struct ElementClassifier: Sendable {
 
         let topScore = scores.values.max() ?? 0
         guard topScore > 0 else {
-            return ClassificationResult(element: .wind, score: 0, isLowConfidence: true)
+            return ClassificationResult(element: .water, score: 0, isLowConfidence: true)
         }
 
-        let winners = Element.allCases.filter { scores[$0] == topScore }
+        let responsibilityPriority: [Element] = [.fire, .mountain, .water, .wind]
+        let winners = responsibilityPriority.filter { scores[$0] == topScore }
         return ClassificationResult(
             element: winners.first ?? .wind,
             score: topScore,
@@ -65,25 +74,43 @@ public struct ElementClassifier: Sendable {
 
     public static let defaultTerms: [Element: [String]] = [
         .wind: [
-            "browser control", "computer use", "automation", "automate", "navigate",
-            "connect", "integration", "install", "deploy", "publish", "manage", "control",
-            "workflow", "orchestrate", "浏览器", "自动化", "操作", "连接", "导航", "安装",
-            "部署", "发布", "管理", "工作流"
+            "handoff", "delegate", "notify", "route", "sync", "coordinate", "orchestrate",
+            "cross session", "multi agent", "agent party", "wake agent", "send message",
+            "交接", "委派", "通知", "路由", "同步", "协调", "跨会话", "多智能体", "唤醒"
         ],
         .fire: [
-            "frontend design", "image generation", "generate", "create", "build", "compose",
-            "design", "draw", "write", "author", "transform", "scaffold", "presentation",
-            "创造", "生成", "创建", "设计", "绘制", "写作", "制作", "搭建", "改造", "脚手架"
+            "implement", "fix", "create", "generate", "write", "build", "modify", "update",
+            "refactor", "migrate", "deploy", "install", "configure", "scaffold", "edit", "design",
+            "实现", "修复", "创建", "生成", "编写", "修改", "更新", "重构", "迁移", "部署",
+            "安装", "配置", "搭建", "设计"
         ],
         .water: [
-            "deep research", "diagnose", "debug", "explore", "investigate", "research",
-            "analyze", "understand", "trace", "explain", "discover", "read", "inspect",
-            "研究", "诊断", "调试", "探索", "调查", "分析", "理解", "追踪", "解释", "发现"
+            "research", "investigate", "diagnose", "debug", "explore", "analyze", "understand",
+            "trace", "explain", "discover", "read", "search", "summarize", "guide", "retro",
+            "grill", "研究", "调查", "诊断", "调试", "探索", "分析", "理解", "追踪", "解释",
+            "搜索", "汇总", "复盘", "追问"
         ],
         .mountain: [
-            "code review", "impact analysis", "quality gate", "review", "verify", "validate",
-            "test", "audit", "guard", "standard", "compliance", "safety", "check", "lint",
-            "评审", "审查", "验证", "测试", "检查", "守护", "规范", "合规", "安全", "质量"
+            "review", "verify", "validate", "audit", "test", "check", "inspect", "approve",
+            "quality gate", "compliance", "safety", "security", "lint", "grade", "doctor",
+            "评审", "审查", "验证", "测试", "检查", "验收", "审计", "合规", "安全", "质量", "评分"
         ]
+    ]
+
+    public static let defaultResponsibilityOverrides: [String: Element] = [
+        "agent party time repair bug": .fire,
+        "browser control": .fire, "computer use": .fire, "deep research": .water,
+        "chatgpt imagegen": .fire, "chrome use": .fire, "code review": .mountain,
+        "codebase design": .water, "create skill": .fire, "diagnosing bugs": .water,
+        "domain modeling": .fire, "eli5": .water, "frontend design": .fire,
+        "gitnexus cli": .fire, "gitnexus debugging": .water, "gitnexus exploring": .water,
+        "gitnexus guide": .water, "gitnexus impact analysis": .water,
+        "gitnexus pr review": .mountain, "gitnexus refactoring": .fire,
+        "grill me": .water, "grill with docs": .fire, "grilling": .water,
+        "handoff": .wind, "implement": .fire, "improve codebase architecture": .water,
+        "vercel react best practices": .mountain, "repo env": .water, "retro": .water,
+        "show me": .water, "skill doctor": .mountain, "tdd": .fire,
+        "to spec": .fire, "to tickets": .fire, "wayfinder": .fire,
+        "writing for agents": .fire
     ]
 }

@@ -30,13 +30,19 @@ final class SkillCatalogTests: XCTestCase {
     func testClassifierCoversFourElementsAndFallback() {
         let classifier = ElementClassifier()
 
-        XCTAssertEqual(classifier.classify(name: "browser-control", description: "").element, .wind)
+        XCTAssertEqual(classifier.classify(name: "browser-control", description: "").element, .fire)
         XCTAssertEqual(classifier.classify(name: "frontend-design", description: "").element, .fire)
         XCTAssertEqual(classifier.classify(name: "deep-research", description: "").element, .water)
         XCTAssertEqual(classifier.classify(name: "code-review", description: "").element, .mountain)
 
-        let fallback = classifier.classify(name: "retro", description: "Reflect on recent work")
-        XCTAssertEqual(fallback.element, .wind)
+        XCTAssertEqual(classifier.classify(name: "handoff", description: "Send context to another session").element, .wind)
+        XCTAssertEqual(classifier.classify(name: "investigate-bug", description: "Find the root cause").element, .water)
+        XCTAssertEqual(classifier.classify(name: "generate-tests", description: "Create test code").element, .fire)
+        XCTAssertEqual(classifier.classify(name: "agent-party-time-repair-bug", description: "Delegate internally, then repair the bug").element, .fire)
+        XCTAssertEqual(classifier.classify(name: "run-tests", description: "Verify correctness").element, .mountain)
+
+        let fallback = classifier.classify(name: "unknown-capability", description: "")
+        XCTAssertEqual(fallback.element, .water)
         XCTAssertTrue(fallback.isLowConfidence)
     }
 
