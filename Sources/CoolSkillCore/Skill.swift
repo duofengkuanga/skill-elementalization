@@ -57,7 +57,7 @@ public struct Skill: Codable, Hashable, Identifiable, Sendable {
             "wayfinder": "把大型工作拆成可逐步推进的路线图。",
             "writing-for-agents": "编写让智能体容易理解和执行的文档。"
         ]
-        return summaries[invocationName] ?? "用于完成“\(name)”相关任务的专用助手。"
+        return summaries[invocationName] ?? "把没讲明白的内容，用更简单的话重讲。"
     }
 
     public init(

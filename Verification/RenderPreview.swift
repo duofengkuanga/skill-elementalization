@@ -57,7 +57,7 @@ struct RenderPreview {
         }
         let colorScheme: ColorScheme = mode.contains("light") ? .light : .dark
         let previewSize = rendersSkillList
-            ? NSSize(width: 300, height: 260)
+            ? NSSize(width: 300, height: 360)
             : NSSize(width: 840, height: 580)
         let rootView: AnyView
         if rendersSkillList {

@@ -148,20 +148,21 @@ public struct SkillCatalog {
         var results: [URL] = []
 
         func visit(_ url: URL) {
-            let resolved = url.resolvingSymlinksInPath()
             var isDirectory: ObjCBool = false
-            guard fileManager.fileExists(atPath: resolved.path, isDirectory: &isDirectory) else {
+            let isSymbolicLink = (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
+            guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                  !isSymbolicLink else {
                 return
             }
             if !isDirectory.boolValue {
-                if resolved.lastPathComponent == "SKILL.md" {
-                    results.append(resolved)
+                if url.lastPathComponent == "SKILL.md" {
+                    results.append(url)
                 }
                 return
             }
-            guard visitedDirectories.insert(resolved.path).inserted else { return }
+            guard visitedDirectories.insert(url.standardizedFileURL.path).inserted else { return }
             guard let children = try? fileManager.contentsOfDirectory(
-                at: resolved,
+                at: url,
                 includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
                 options: []
             ) else {

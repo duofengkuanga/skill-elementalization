@@ -244,7 +244,7 @@ struct SkillListPanelContent: View {
     var body: some View {
         VStack(spacing: 0) {
             if let selectedElement = model.selectedElement {
-                Text(selectedElement.chineseDefinition)
+                Text("\(selectedElement.chineseDefinition) · 共 \(model.visibleSkills.count) 个 Skill")
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

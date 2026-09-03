@@ -4,7 +4,7 @@ CoolSkill 是一个 Apple Silicon/macOS 15+ 原生桌面 App。它只读取 `~/.
 
 ## 当前能力
 
-- 仅扫描 `~/.agents/skills`，不混入 `.codex` 或插件目录；
+- 仅扫描 `~/.agents/skills` 中的真实目录，忽略符号链接，不混入 `.codex` 或插件目录；
 - 风火水山规则分类、拖拽/右键人工归类和永久状态；元素图标支持右键拖动排序；
 - 从 Codex 本地 rollout 重建显式、自动和子代理 Skill 使用；
 - App 运行期间每 30 秒自动刷新使用次数和最近调用时间；手动“更新 Skills”会重扫目录并全量重建统计；

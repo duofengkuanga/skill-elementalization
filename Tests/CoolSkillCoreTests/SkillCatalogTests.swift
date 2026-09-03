@@ -110,6 +110,29 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertTrue(result.skills.first?.allowsImplicitInvocation ?? false)
     }
 
+    func testCatalogIgnoresSymbolicLinkedSkills() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let linkedSkill = root.appendingPathComponent("linked-skill", isDirectory: true)
+        let target = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: target)
+        }
+
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try writeSkill(name: "linked-skill", description: "Must not be scanned", under: target)
+        try FileManager.default.createSymbolicLink(at: linkedSkill, withDestinationURL: target.appendingPathComponent("linked-skill"))
+
+        let result = SkillCatalog(roots: [
+            SkillSourceRoot(url: root, kind: .sharedGlobal, precedence: 100)
+        ]).scan()
+
+        XCTAssertTrue(result.skills.isEmpty)
+        XCTAssertTrue(result.issues.isEmpty)
+    }
+
     private func writeSkill(
         name: String,
         description: String,
