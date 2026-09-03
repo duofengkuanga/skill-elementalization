@@ -19,7 +19,7 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertEqual(document.name, "deep-research")
         XCTAssertEqual(document.description, "Research complex topics with evidence.")
         XCTAssertEqual(document.headings, ["Workflow", "Verify sources"])
-        XCTAssertFalse(document.allowsImplicitInvocation)
+        XCTAssertTrue(document.allowsImplicitInvocation)
         XCTAssertEqual(
             SkillDocumentParser().parseAllowsImplicitInvocation(
                 contents: "policy:\n  allow_implicit_invocation: false\n"
@@ -90,10 +90,31 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertEqual(result.issues.count, 1)
     }
 
+    func testCatalogIgnoresDisableModelInvocationWithoutAllowImplicitInvocationPolicy() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try writeSkill(
+            name: "manual-only",
+            description: "Review work",
+            disableModelInvocation: true,
+            under: root
+        )
+
+        let result = SkillCatalog(roots: [
+            SkillSourceRoot(url: root, kind: .sharedGlobal, precedence: 100)
+        ]).scan()
+
+        XCTAssertEqual(result.skills.count, 1)
+        XCTAssertTrue(result.skills.first?.allowsImplicitInvocation ?? false)
+    }
+
     private func writeSkill(
         name: String,
         description: String,
         allowImplicitInvocation: Bool? = nil,
+        disableModelInvocation: Bool = false,
         under root: URL
     ) throws {
         let directory = root.appendingPathComponent(name, isDirectory: true)
@@ -102,6 +123,7 @@ final class SkillCatalogTests: XCTestCase {
         ---
         name: \(name)
         description: \(description)
+        \(disableModelInvocation ? "disable-model-invocation: true" : "")
         ---
         """.write(
             to: directory.appendingPathComponent("SKILL.md"),

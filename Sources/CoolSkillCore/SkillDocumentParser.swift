@@ -68,10 +68,7 @@ public struct SkillDocumentParser: Sendable {
             name: unquote(rawName),
             description: unquote(description),
             headings: headings,
-            allowsImplicitInvocation: !(booleanValue(
-                for: "disable-model-invocation",
-                in: frontmatter
-            ) ?? false)
+            allowsImplicitInvocation: true
         )
     }
 

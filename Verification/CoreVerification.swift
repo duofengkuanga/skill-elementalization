@@ -68,7 +68,7 @@ struct CoreVerification {
             # Workflow
             """)
             precondition(parsed.description == "Research complex topics with evidence.")
-            precondition(!parsed.allowsImplicitInvocation)
+            precondition(parsed.allowsImplicitInvocation)
         } catch {
             preconditionFailure("Parser verification failed: \(error)")
         }

@@ -87,6 +87,7 @@ struct AppModelVerification {
         precondition(model.state.skills.isEmpty, "An empty agents directory must clear the catalog")
 
         verifyCatalogRefreshRebuildsHistoricalUsage()
+        verifyCatalogRefreshUpdatesImplicitInvocationPolicy()
 
         try? FileManager.default.removeItem(at: root)
         print("App model verification passed")
@@ -169,6 +170,56 @@ struct AppModelVerification {
             )
         } catch {
             preconditionFailure("Catalog refresh usage verification failed: \(error)")
+        }
+    }
+
+    @MainActor
+    private static func verifyCatalogRefreshUpdatesImplicitInvocationPolicy() {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("coolskill-implicit-policy-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let skillURL = root.appendingPathComponent("manual-only/SKILL.md")
+        let policyURL = root.appendingPathComponent("manual-only/agents/openai.yaml")
+        do {
+            try FileManager.default.createDirectory(
+                at: skillURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try """
+            ---
+            name: manual-only
+            description: Review work
+            disable-model-invocation: true
+            ---
+            """.write(to: skillURL, atomically: true, encoding: .utf8)
+
+            let model = CoolSkillModel(
+                catalog: SkillCatalog(roots: [
+                    SkillSourceRoot(url: root, kind: .sharedGlobal, precedence: 100)
+                ]),
+                store: LocalStateStore(fileURL: root.appendingPathComponent("state.json")),
+                usageReconstructor: UsageReconstructor(roots: []),
+                inserter: FakeInserter(result: .failure(FakeInsertionError.rejected)),
+                loginItemManager: FakeLoginItemManager(),
+                permissionController: FakePermissionController(
+                    value: PermissionSnapshot(accessibilityGranted: false)
+                )
+            )
+
+            model.refreshCatalog()
+            precondition(model.state.skills.first?.allowsImplicitInvocation == true)
+
+            try FileManager.default.createDirectory(
+                at: policyURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try "policy:\n  allow_implicit_invocation: false\n"
+                .write(to: policyURL, atomically: true, encoding: .utf8)
+            model.refreshCatalog()
+            precondition(model.state.skills.first?.allowsImplicitInvocation == false)
+        } catch {
+            preconditionFailure("Implicit invocation policy refresh verification failed: \(error)")
         }
     }
 
