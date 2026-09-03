@@ -38,14 +38,6 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func toggleVisibility() {
-        if window.isVisible, window.isKeyWindow {
-            window.orderOut(nil)
-        } else {
-            showAndActivate()
-        }
-    }
-
     func setPinned(_ pinned: Bool) {
         guard pinned != isPinned else { return }
         isPinned = pinned
@@ -214,7 +206,7 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
 
     private func makeSettingsWindow() -> NSWindow {
         let settings = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 390, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 390, height: 330),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

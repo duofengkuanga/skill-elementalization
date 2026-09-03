@@ -22,7 +22,6 @@ public struct PersistedAppState: Codable, Equatable, Sendable {
     public var skills: [String: PersistedSkillState]
     public var usageCursors: [String: UInt64]
     public var usageEventIDs: Set<String>
-    public var shortcut: ChordConfiguration
     public var launchAtLogin: Bool
     public var hasCompletedOnboarding: Bool
 
@@ -32,7 +31,6 @@ public struct PersistedAppState: Codable, Equatable, Sendable {
         skills: [String: PersistedSkillState] = [:],
         usageCursors: [String: UInt64] = [:],
         usageEventIDs: Set<String> = [],
-        shortcut: ChordConfiguration = .commandDP,
         launchAtLogin: Bool = false,
         hasCompletedOnboarding: Bool = false
     ) {
@@ -41,7 +39,6 @@ public struct PersistedAppState: Codable, Equatable, Sendable {
         self.skills = skills
         self.usageCursors = usageCursors
         self.usageEventIDs = usageEventIDs
-        self.shortcut = shortcut
         self.launchAtLogin = launchAtLogin
         self.hasCompletedOnboarding = hasCompletedOnboarding
     }
@@ -52,7 +49,6 @@ public struct PersistedAppState: Codable, Equatable, Sendable {
         case skills
         case usageCursors
         case usageEventIDs
-        case shortcut
         case launchAtLogin
         case hasCompletedOnboarding
     }
@@ -64,7 +60,6 @@ public struct PersistedAppState: Codable, Equatable, Sendable {
         skills = try container.decodeIfPresent([String: PersistedSkillState].self, forKey: .skills) ?? [:]
         usageCursors = try container.decodeIfPresent([String: UInt64].self, forKey: .usageCursors) ?? [:]
         usageEventIDs = try container.decodeIfPresent(Set<String>.self, forKey: .usageEventIDs) ?? []
-        shortcut = try container.decodeIfPresent(ChordConfiguration.self, forKey: .shortcut) ?? .commandDP
         launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
     }
@@ -118,11 +113,6 @@ public final class LocalStateStore {
         var skillState = state.skills[invocationName] ?? PersistedSkillState()
         skillState.manualElement = element
         state.skills[invocationName] = skillState
-        try persist()
-    }
-
-    public func setShortcut(_ shortcut: ChordConfiguration) throws {
-        state.shortcut = shortcut
         try persist()
     }
 

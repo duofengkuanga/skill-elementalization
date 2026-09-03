@@ -17,11 +17,10 @@ private final class PreviewInserter: SkillInserting {
 
 private struct PreviewPermissions: PermissionControlling {
     func snapshot() -> PermissionSnapshot {
-        PermissionSnapshot(accessibilityGranted: false, inputMonitoringGranted: false)
+        PermissionSnapshot(accessibilityGranted: false)
     }
 
     func requestAccessibility() {}
-    func requestInputMonitoring() {}
 }
 
 private final class PreviewLoginItem: LoginItemManaging {
@@ -41,8 +40,9 @@ struct RenderPreview {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("coolskill-preview-\(UUID().uuidString)", isDirectory: true)
         let store = LocalStateStore(fileURL: root.appendingPathComponent("state.json"))
+        let rendersSkillList = mode.hasPrefix("list-")
         let model = CoolSkillModel(
-            skills: mode == "stress" ? stressSkills : previewSkills,
+            skills: mode.contains("stress") ? stressSkills : previewSkills,
             catalog: SkillCatalog(roots: []),
             store: store,
             usageReconstructor: UsageReconstructor(roots: []),
@@ -55,15 +55,29 @@ struct RenderPreview {
         } else if mode != "unselected" {
             model.select(.wind)
         }
-        let colorScheme: ColorScheme = mode == "light" ? .light : .dark
-        let rootView = CoolSkillPanel(
-            model: model,
-            reduceMotionOverride: mode == "reduce-motion" ? true : nil
-        )
-            .frame(width: 840, height: 580)
-            .environment(\.colorScheme, colorScheme)
+        let colorScheme: ColorScheme = mode.contains("light") ? .light : .dark
+        let previewSize = rendersSkillList
+            ? NSSize(width: 300, height: 260)
+            : NSSize(width: 840, height: 580)
+        let rootView: AnyView
+        if rendersSkillList {
+            rootView = AnyView(
+                SkillListPanelContent(model: model, onHoverChanged: { _ in })
+                    .frame(width: previewSize.width, height: previewSize.height)
+                    .environment(\.colorScheme, colorScheme)
+            )
+        } else {
+            rootView = AnyView(
+                CoolSkillPanel(
+                    model: model,
+                    reduceMotionOverride: mode == "reduce-motion" ? true : nil
+                )
+                .frame(width: previewSize.width, height: previewSize.height)
+                .environment(\.colorScheme, colorScheme)
+            )
+        }
         let hostingView = NSHostingView(rootView: rootView)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 840, height: 580)
+        hostingView.frame = NSRect(origin: .zero, size: previewSize)
         hostingView.layoutSubtreeIfNeeded()
 
         guard let bitmap = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
@@ -86,7 +100,8 @@ struct RenderPreview {
                 summary: "控制浏览器完成网页任务",
                 element: .wind,
                 usageCount: 18,
-                lastUsedAt: Date(timeIntervalSince1970: 40)
+                lastUsedAt: Date(timeIntervalSince1970: 1_788_400_535),
+                isManualInvocationOnly: true
             ),
             Skill(
                 invocationName: "chrome-use",
@@ -94,7 +109,7 @@ struct RenderPreview {
                 summary: "操作真实浏览器与网页",
                 element: .wind,
                 usageCount: 11,
-                lastUsedAt: Date(timeIntervalSince1970: 30)
+                lastUsedAt: Date(timeIntervalSince1970: 1_788_396_923)
             ),
             Skill(
                 invocationName: "computer-use",
@@ -102,7 +117,8 @@ struct RenderPreview {
                 summary: "操作本机 macOS 应用",
                 element: .wind,
                 usageCount: 7,
-                lastUsedAt: Date(timeIntervalSince1970: 20)
+                lastUsedAt: Date(timeIntervalSince1970: 1_788_389_704),
+                isManualInvocationOnly: true
             ),
             Skill(
                 invocationName: "unknown-tool",
@@ -122,7 +138,8 @@ struct RenderPreview {
                 summary: "这是一条非常长的 Skill 描述，用于确认内容会在单行内正确截断且不会挤压右侧累计次数。",
                 element: .wind,
                 usageCount: 123_456,
-                lastUsedAt: Date(timeIntervalSince1970: 50)
+                lastUsedAt: Date(timeIntervalSince1970: 1_788_400_535),
+                isManualInvocationOnly: true
             ),
             Skill(
                 invocationName: "zero-count",

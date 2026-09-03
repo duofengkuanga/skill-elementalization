@@ -22,7 +22,9 @@ public struct LauncherState: Equatable, Sendable {
         return skills
             .filter { $0.element == selectedElement }
             .sorted {
-                if $0.usageCount != $1.usageCount { return $0.usageCount > $1.usageCount }
+                if $0.lastUsedAt != $1.lastUsedAt {
+                    return ($0.lastUsedAt ?? .distantPast) > ($1.lastUsedAt ?? .distantPast)
+                }
                 return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
     }

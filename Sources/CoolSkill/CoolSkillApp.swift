@@ -6,32 +6,13 @@ import Foundation
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppContainer.shared.model
     private var windowController: SkillLibraryWindowController?
-    private var chordMonitor: GlobalChordMonitor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         let windowController = SkillLibraryWindowController(model: model)
         self.windowController = windowController
-        model.onOpenPanel = { [weak windowController] in
-            windowController?.showAndActivate()
-        }
         installApplicationMenu()
         windowController.showAndActivate()
-
-        #if !COOLSKILL_LIFECYCLE_TEST
-        let monitor = GlobalChordMonitor(configuration: model.shortcutConfiguration) { [weak windowController] in
-            windowController?.toggleVisibility()
-        }
-        chordMonitor = monitor
-        model.onShortcutChanged = { [weak monitor] configuration in
-            monitor?.update(configuration: configuration)
-        }
-        model.onPermissionRefresh = { [weak monitor] in
-            guard monitor?.status != .running else { return }
-            _ = monitor?.start()
-        }
-        _ = monitor.start()
-        #endif
     }
 
     #if COOLSKILL_LIFECYCLE_TEST

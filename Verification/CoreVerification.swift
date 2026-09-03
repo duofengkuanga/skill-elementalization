@@ -21,6 +21,34 @@ struct CoreVerification {
         )
         precondition(state.visibleSkills.first?.usageCount == 8)
 
+        let recencyState = LauncherState(selectedElement: .wind, skills: [
+            Skill(
+                invocationName: "frequent-old",
+                name: "Frequent Old",
+                summary: "",
+                element: .wind,
+                usageCount: 20,
+                lastUsedAt: Date(timeIntervalSince1970: 10)
+            ),
+            Skill(
+                invocationName: "recent",
+                name: "Recent",
+                summary: "",
+                element: .wind,
+                usageCount: 1,
+                lastUsedAt: Date(timeIntervalSince1970: 20)
+            ),
+            Skill(
+                invocationName: "never-used",
+                name: "Never Used",
+                summary: "",
+                element: .wind
+            )
+        ])
+        precondition(
+            recencyState.visibleSkills.map(\.invocationName) == ["recent", "frequent-old", "never-used"]
+        )
+
         let classifier = ElementClassifier()
         precondition(classifier.classify(name: "browser-control", description: "").element == .fire)
         precondition(classifier.classify(name: "frontend-design", description: "").element == .fire)
@@ -35,10 +63,12 @@ struct CoreVerification {
             description: >-
               Research complex topics
               with evidence.
+            disable-model-invocation: true
             ---
             # Workflow
             """)
             precondition(parsed.description == "Research complex topics with evidence.")
+            precondition(parsed.isManualInvocationOnly)
         } catch {
             preconditionFailure("Parser verification failed: \(error)")
         }
@@ -49,7 +79,6 @@ struct CoreVerification {
         verifyUsageReconstruction()
         verifyMalformedUsageRecord()
         verifyInsertionPlanning()
-        verifyChordRecognition()
         verifyPanelPlacement()
         verifyLegacyStateMigration()
         verifyLargeCatalog()
@@ -104,12 +133,20 @@ struct CoreVerification {
                 withIntermediateDirectories: true
             )
             try "not frontmatter".write(to: broken, atomically: true, encoding: .utf8)
+            let policy = high.appendingPathComponent("agents/openai.yaml")
+            try FileManager.default.createDirectory(
+                at: policy.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try "policy:\n  allow_implicit_invocation: false\n"
+                .write(to: policy, atomically: true, encoding: .utf8)
             let result = SkillCatalog(roots: [
                 SkillSourceRoot(url: root.appendingPathComponent("high"), kind: .codexGlobal, precedence: 20),
                 SkillSourceRoot(url: root.appendingPathComponent("low"), kind: .plugin, precedence: 10)
             ]).scan()
             precondition(result.skills.count == 1)
             precondition(result.skills.first?.element == .fire)
+            precondition(result.skills.first?.isManualInvocationOnly == true)
             precondition(result.issues.count == 1)
         } catch {
             preconditionFailure("Catalog verification failed: \(error)")
@@ -160,12 +197,10 @@ struct CoreVerification {
             let store = LocalStateStore(fileURL: file)
             try store.setSelectedElement(.water)
             try store.setManualElement(.mountain, for: "retro")
-            try store.setShortcut(ChordConfiguration(primaryKeyCode: 8, secondaryKeyCode: 9))
             try store.setOnboardingCompleted(true)
             let reloaded = LocalStateStore(fileURL: file)
             precondition(reloaded.state.selectedElement == .water)
             precondition(reloaded.state.skills["retro"]?.manualElement == .mountain)
-            precondition(reloaded.state.shortcut.primaryKeyCode == 8)
             precondition(reloaded.state.hasCompletedOnboarding)
         } catch {
             preconditionFailure("Local store verification failed: \(error)")
@@ -255,32 +290,6 @@ struct CoreVerification {
         }
     }
 
-    private static func verifyChordRecognition() {
-        var recognizer = ChordRecognizer()
-        let d = recognizer.receive(.init(key: .d, phase: .down, commandPressed: true))
-        precondition(d.suppressCurrent)
-        let trigger = recognizer.receive(.init(key: .p, phase: .down, commandPressed: true))
-        precondition(trigger.didTrigger)
-
-        var customRecognizer = ChordRecognizer(
-            configuration: ChordConfiguration(
-                primaryKeyCode: ShortcutKey.c.keyCode,
-                secondaryKeyCode: ShortcutKey.v.keyCode
-            )
-        )
-        _ = customRecognizer.receive(.init(keyCode: ShortcutKey.c.keyCode, phase: .down, commandPressed: true))
-        precondition(
-            customRecognizer.receive(.init(keyCode: ShortcutKey.v.keyCode, phase: .down, commandPressed: true)).didTrigger,
-            "Configured shortcut must trigger for its selected key pair"
-        )
-
-        var timeoutRecognizer = ChordRecognizer()
-        _ = timeoutRecognizer.receive(.init(key: .d, phase: .down, commandPressed: true))
-        _ = timeoutRecognizer.receive(.init(key: .d, phase: .up, commandPressed: true))
-        let timeout = timeoutRecognizer.timeout()
-        precondition(timeout.replayDDown && timeout.replayDUp)
-    }
-
     private static func verifyPanelPlacement() {
         let result = PanelPlacement.clampedOrigin(
             desired: PanelPoint(x: 900, y: 600),
@@ -303,7 +312,6 @@ struct CoreVerification {
                 .write(to: file, atomically: true, encoding: .utf8)
             let migrated = LocalStateStore(fileURL: file).state
             precondition(migrated.selectedElement == .water)
-            precondition(migrated.shortcut == .commandDP)
             precondition(!migrated.hasCompletedOnboarding)
 
             try "{broken".write(to: file, atomically: true, encoding: .utf8)

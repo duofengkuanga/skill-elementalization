@@ -8,6 +8,7 @@ public struct Skill: Codable, Hashable, Identifiable, Sendable {
     public var source: String
     public var usageCount: Int
     public var lastUsedAt: Date?
+    public var isManualInvocationOnly: Bool
     public var isLowConfidence: Bool
     public var isManualElement: Bool
 
@@ -67,6 +68,7 @@ public struct Skill: Codable, Hashable, Identifiable, Sendable {
         source: String = "fixture",
         usageCount: Int = 0,
         lastUsedAt: Date? = nil,
+        isManualInvocationOnly: Bool = false,
         isLowConfidence: Bool = false,
         isManualElement: Bool = false
     ) {
@@ -77,6 +79,7 @@ public struct Skill: Codable, Hashable, Identifiable, Sendable {
         self.source = source
         self.usageCount = usageCount
         self.lastUsedAt = lastUsedAt
+        self.isManualInvocationOnly = isManualInvocationOnly
         self.isLowConfidence = isLowConfidence
         self.isManualElement = isManualElement
     }

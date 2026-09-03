@@ -10,6 +10,7 @@ final class SkillCatalogTests: XCTestCase {
         description: >-
           Research complex topics
           with evidence.
+        disable-model-invocation: true
         ---
         # Workflow
         ## Verify sources
@@ -18,6 +19,13 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertEqual(document.name, "deep-research")
         XCTAssertEqual(document.description, "Research complex topics with evidence.")
         XCTAssertEqual(document.headings, ["Workflow", "Verify sources"])
+        XCTAssertTrue(document.isManualInvocationOnly)
+        XCTAssertEqual(
+            SkillDocumentParser().parseAllowsImplicitInvocation(
+                contents: "policy:\n  allow_implicit_invocation: false\n"
+            ),
+            false
+        )
     }
 
     func testParserAcceptsDocumentWithoutBody() throws {
@@ -25,6 +33,7 @@ final class SkillCatalogTests: XCTestCase {
 
         XCTAssertEqual(document.name, "retro")
         XCTAssertTrue(document.headings.isEmpty)
+        XCTAssertFalse(document.isManualInvocationOnly)
     }
 
     func testClassifierCoversFourElementsAndFallback() {
@@ -55,7 +64,12 @@ final class SkillCatalogTests: XCTestCase {
         try FileManager.default.createDirectory(at: low, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        try writeSkill(name: "same-skill", description: "Create a design", under: high)
+        try writeSkill(
+            name: "same-skill",
+            description: "Create a design",
+            allowImplicitInvocation: false,
+            under: high
+        )
         try writeSkill(name: "same-skill", description: "Review quality", under: low)
         let malformed = low.appendingPathComponent("broken/SKILL.md")
         try FileManager.default.createDirectory(
@@ -72,10 +86,16 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertEqual(result.skills.count, 1)
         XCTAssertEqual(result.skills.first?.element, .fire)
         XCTAssertEqual(result.skills.first?.source.contains("high"), true)
+        XCTAssertEqual(result.skills.first?.isManualInvocationOnly, true)
         XCTAssertEqual(result.issues.count, 1)
     }
 
-    private func writeSkill(name: String, description: String, under root: URL) throws {
+    private func writeSkill(
+        name: String,
+        description: String,
+        allowImplicitInvocation: Bool? = nil,
+        under root: URL
+    ) throws {
         let directory = root.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try """
@@ -88,5 +108,14 @@ final class SkillCatalogTests: XCTestCase {
             atomically: true,
             encoding: .utf8
         )
+        if let allowImplicitInvocation {
+            let policyURL = directory.appendingPathComponent("agents/openai.yaml")
+            try FileManager.default.createDirectory(
+                at: policyURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try "policy:\n  allow_implicit_invocation: \(allowImplicitInvocation)\n"
+                .write(to: policyURL, atomically: true, encoding: .utf8)
+        }
     }
 }

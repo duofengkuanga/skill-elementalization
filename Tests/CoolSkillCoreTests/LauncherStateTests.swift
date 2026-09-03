@@ -16,7 +16,7 @@ final class LauncherStateTests: XCTestCase {
         XCTAssertEqual(state.visibleSkills.map(\.invocationName), ["deep-research"])
     }
 
-    func testRecordsUseAndSortsHighestUsageFirst() {
+    func testRecordsUseAndSortsMostRecentlyUsedFirst() {
         let older = Skill(
             invocationName: "older",
             name: "Older",
@@ -35,8 +35,8 @@ final class LauncherStateTests: XCTestCase {
 
         state.send(.recordUse(invocationName: "fresh", at: Date(timeIntervalSince1970: 20)))
 
-        XCTAssertEqual(state.visibleSkills.map(\.invocationName), ["older", "fresh"])
-        XCTAssertEqual(state.visibleSkills.first?.usageCount, 3)
+        XCTAssertEqual(state.visibleSkills.map(\.invocationName), ["fresh", "older"])
+        XCTAssertEqual(state.visibleSkills.first?.lastUsedAt, Date(timeIntervalSince1970: 20))
     }
 
     func testUnknownUseDoesNotMutateState() {

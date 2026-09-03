@@ -30,3 +30,6 @@ swiftc \
 "$preview_build/render-preview" "$preview_build/stress-dark.png" stress
 "$preview_build/render-preview" "$preview_build/empty-dark.png" empty
 "$preview_build/render-preview" "$preview_build/reduce-motion-dark.png" reduce-motion
+"$preview_build/render-preview" "$preview_build/list-dark.png" list-dark
+"$preview_build/render-preview" "$preview_build/list-light.png" list-light
+"$preview_build/render-preview" "$preview_build/list-stress-dark.png" list-stress-dark

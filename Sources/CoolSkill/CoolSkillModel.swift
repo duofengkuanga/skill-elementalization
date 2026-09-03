@@ -13,7 +13,6 @@ final class CoolSkillModel: ObservableObject {
     @Published private(set) var insertionMessage: String?
     @Published private(set) var keyboardSelectionIndex: Int?
     @Published private(set) var isPinned = false
-    @Published private(set) var shortcutConfiguration: ChordConfiguration
     @Published private(set) var launchAtLogin: Bool
     @Published private(set) var hasCompletedOnboarding: Bool
     @Published private(set) var permissions: PermissionSnapshot
@@ -27,10 +26,7 @@ final class CoolSkillModel: ObservableObject {
     private let loginItemManager: LoginItemManaging
     private let permissionController: PermissionControlling
     private var hasLoadedCatalog = false
-
-    var onShortcutChanged: ((ChordConfiguration) -> Void)?
-    var onPermissionRefresh: (() -> Void)?
-    var onOpenPanel: (() -> Void)?
+    private var pendingUsageRebuild = false
 
     init(
         skills: [Skill] = [],
@@ -51,7 +47,6 @@ final class CoolSkillModel: ObservableObject {
         self.inserter = inserter
         self.loginItemManager = loginItemManager
         self.permissionController = permissionController
-        shortcutConfiguration = store.state.shortcut
         launchAtLogin = store.state.launchAtLogin
         hasCompletedOnboarding = store.state.hasCompletedOnboarding
         permissions = permissionController.snapshot()
@@ -111,40 +106,12 @@ final class CoolSkillModel: ObservableObject {
         isPinned = pinned
     }
 
-    func openPanel() {
-        onOpenPanel?()
-    }
-
     func openSettings() {
         isSettingsPresented = true
     }
 
     func closeSettings() {
         isSettingsPresented = false
-    }
-
-    func setShortcut(primary: ShortcutKey, secondary: ShortcutKey) {
-        guard primary != secondary else {
-            lifecycleMessage = "快捷键需要使用两个不同的字母"
-            return
-        }
-        let configuration = ChordConfiguration(
-            primaryKeyCode: primary.keyCode,
-            secondaryKeyCode: secondary.keyCode,
-            windowMilliseconds: 150
-        )
-        do {
-            try store.setShortcut(configuration)
-            shortcutConfiguration = configuration
-            lifecycleMessage = nil
-            onShortcutChanged?(configuration)
-        } catch {
-            lifecycleMessage = "无法保存快捷键：\(error.localizedDescription)"
-        }
-    }
-
-    func restoreDefaultShortcut() {
-        setShortcut(primary: .d, secondary: .p)
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -160,16 +127,10 @@ final class CoolSkillModel: ObservableObject {
 
     func refreshPermissions() {
         permissions = permissionController.snapshot()
-        onPermissionRefresh?()
     }
 
     func requestAccessibilityPermission() {
         permissionController.requestAccessibility()
-        refreshPermissions()
-    }
-
-    func requestInputMonitoringPermission() {
-        permissionController.requestInputMonitoring()
         refreshPermissions()
     }
 
@@ -189,7 +150,6 @@ final class CoolSkillModel: ObservableObject {
                 try loginItemManager.setEnabled(false)
             }
             try store.removeAll()
-            shortcutConfiguration = .commandDP
             launchAtLogin = false
             hasCompletedOnboarding = false
             state = LauncherState(
@@ -202,7 +162,6 @@ final class CoolSkillModel: ObservableObject {
                     return reset
                 }
             )
-            onShortcutChanged?(.commandDP)
             lifecycleMessage = nil
         } catch {
             lifecycleMessage = "无法清除本地数据：\(error.localizedDescription)"
@@ -237,11 +196,14 @@ final class CoolSkillModel: ObservableObject {
         state.send(.replaceSkills(Self.applying(store.state, to: result.skills)))
         catalogIssues = result.issues
         isRefreshing = false
-        refreshUsage()
+        refreshUsage(rebuild: true)
     }
 
     func refreshUsage(rebuild: Bool = false) {
-        guard !isRefreshingUsage else { return }
+        guard !isRefreshingUsage else {
+            pendingUsageRebuild = pendingUsageRebuild || rebuild
+            return
+        }
         isRefreshingUsage = true
         let skills = state.skills
         let cursors = store.state.usageCursors
@@ -274,6 +236,10 @@ final class CoolSkillModel: ObservableObject {
         }
         usageIssues = result.issues
         isRefreshingUsage = false
+        if pendingUsageRebuild {
+            pendingUsageRebuild = false
+            refreshUsage(rebuild: true)
+        }
     }
 
     func moveSkill(_ invocationName: String, to element: Element) {

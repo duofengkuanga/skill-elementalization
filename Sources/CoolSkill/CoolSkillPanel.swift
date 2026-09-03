@@ -13,6 +13,7 @@ struct CoolSkillPanel: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isShowingSkillList = false
     @State private var elementOrder = Element.allCases
+    @State private var rightDragOriginOrder: [Element]?
 
     init(
         model: CoolSkillModel,
@@ -69,7 +70,7 @@ struct CoolSkillPanel: View {
         }
         .task {
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 120_000_000_000)
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
                 guard !Task.isCancelled else { return }
                 model.refreshUsage()
             }
@@ -83,7 +84,7 @@ struct CoolSkillPanel: View {
         let inset = min(max(8, size.width * 0.16), 22)
         let usableHeight = max(1, size.height - inset * 2)
         let buttonSide = min(max(20, min(size.width * 0.62, usableHeight / 5.6)), 76)
-        let glyphSide = buttonSide * 0.48
+        let glyphSide = buttonSide * 0.66
         let pinHeight = buttonSide * 0.78
         let gap = max(5, min(26, (usableHeight - pinHeight - buttonSide * 4) / 4))
         return VStack(spacing: gap) {
@@ -123,6 +124,19 @@ struct CoolSkillPanel: View {
                         }
                     }
                     return true
+                }
+                .background {
+                    RightMouseDragReader {
+                        rightDragOriginOrder = elementOrder
+                    } onChanged: { verticalOffset in
+                        reorderElement(
+                            element,
+                            verticalOffset: verticalOffset,
+                            itemStride: buttonSide + gap
+                        )
+                    } onEnded: {
+                        rightDragOriginOrder = nil
+                    }
                 }
             }
         }
@@ -190,6 +204,21 @@ struct CoolSkillPanel: View {
               let to = elementOrder.firstIndex(of: destination) else { return }
         elementOrder.remove(at: from)
         elementOrder.insert(dragged, at: to)
+    }
+
+    private func reorderElement(
+        _ dragged: Element,
+        verticalOffset: CGFloat,
+        itemStride: CGFloat
+    ) {
+        let originOrder = rightDragOriginOrder ?? elementOrder
+        guard let sourceIndex = originOrder.firstIndex(of: dragged), itemStride > 0 else { return }
+        let indexOffset = Int((verticalOffset / itemStride).rounded())
+        let destinationIndex = min(max(sourceIndex - indexOffset, 0), originOrder.count - 1)
+        var reordered = originOrder
+        reordered.remove(at: sourceIndex)
+        reordered.insert(dragged, at: destinationIndex)
+        elementOrder = reordered
     }
 
     private func synchronizePresentation(with selectedElement: Element?) {
@@ -268,6 +297,91 @@ struct SkillListPanelContent: View {
     }
 }
 
+private struct RightMouseDragReader: NSViewRepresentable {
+    let onBegan: () -> Void
+    let onChanged: (CGFloat) -> Void
+    let onEnded: () -> Void
+
+    func makeNSView(context: Context) -> TrackingView {
+        let view = TrackingView()
+        update(view)
+        return view
+    }
+
+    func updateNSView(_ nsView: TrackingView, context: Context) {
+        update(nsView)
+    }
+
+    static func dismantleNSView(_ nsView: TrackingView, coordinator: ()) {
+        nsView.stopMonitoring()
+    }
+
+    private func update(_ view: TrackingView) {
+        view.onBegan = onBegan
+        view.onChanged = onChanged
+        view.onEnded = onEnded
+    }
+
+    final class TrackingView: NSView {
+        var onBegan: (() -> Void)?
+        var onChanged: ((CGFloat) -> Void)?
+        var onEnded: (() -> Void)?
+
+        private var monitor: Any?
+        private var startY: CGFloat?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil {
+                stopMonitoring()
+            } else {
+                startMonitoring()
+            }
+        }
+
+        deinit {
+            stopMonitoring()
+        }
+
+        func stopMonitoring() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+            startY = nil
+        }
+
+        private func startMonitoring() {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.rightMouseDown, .rightMouseDragged, .rightMouseUp]
+            ) { [weak self] event in
+                self?.handle(event)
+                return event
+            }
+        }
+
+        private func handle(_ event: NSEvent) {
+            switch event.type {
+            case .rightMouseDown:
+                guard event.window === window,
+                      bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
+                startY = event.locationInWindow.y
+                onBegan?()
+            case .rightMouseDragged:
+                guard let startY else { return }
+                onChanged?(event.locationInWindow.y - startY)
+            case .rightMouseUp:
+                guard startY != nil else { return }
+                startY = nil
+                onEnded?()
+            default:
+                break
+            }
+        }
+    }
+}
+
 private struct ElementButton: View {
     let element: Element
     let isSelected: Bool
@@ -307,40 +421,60 @@ private struct SkillRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(accentColor.opacity(0.86))
-                    .frame(width: 7, height: 7)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(skill.name)
-                        .font(.system(size: 13, weight: .semibold))
+        HStack(spacing: 8) {
+            Button(action: action) {
+                HStack(alignment: .top, spacing: 10) {
+                    Circle()
+                        .fill(accentColor.opacity(0.86))
+                        .frame(width: 7, height: 7)
+                        .padding(.top, 5)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(skill.name)
+                                .font(.system(size: 13, weight: .semibold))
+                                .lineLimit(1)
+                            Spacer(minLength: 4)
+                            if skill.usageCount > 0 {
+                                Text("\(skill.usageCount)")
+                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(Color.primary.opacity(0.045), in: Capsule())
+                            }
+                        }
+                        Text(skill.chineseSummary)
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                            Text(lastUsedText)
+                                .fontDesign(.monospaced)
+                        }
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
                         .lineLimit(1)
-                    Text(skill.chineseSummary)
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    }
                 }
-                Spacer(minLength: 12)
-                if skill.usageCount > 0 {
-                    Text("\(skill.usageCount)")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 7)
-                        .background(Color.primary.opacity(0.045), in: Capsule())
-                }
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 12)
-            .frame(height: 44)
+            .buttonStyle(.plain)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                isKeyboardSelected() ? accentColor.opacity(0.13) : (isHovered ? Color.primary.opacity(0.035) : Color.clear),
-                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .accessibilityLabel("\(skill.name)，\(skill.summary)，最近调用：\(lastUsedText)")
+            ManualInvocationIndicator(
+                isOn: skill.isManualInvocationOnly,
+                tint: accentColor
             )
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(skill.name)，\(skill.summary)")
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .frame(minHeight: 64)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            isKeyboardSelected() ? accentColor.opacity(0.13) : (isHovered ? Color.primary.opacity(0.035) : Color.clear),
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
         .onDrag {
             NSItemProvider(object: NSString(string: skill.invocationName))
         }
@@ -356,19 +490,105 @@ private struct SkillRow: View {
             isHovered = hovering
         }
     }
+
+    private var lastUsedText: String {
+        guard let lastUsedAt = skill.lastUsedAt else { return "从未调用" }
+        return Self.timestampFormatter.string(from: lastUsedAt)
+    }
+
+    private static let timestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter
+    }()
+}
+
+private struct ManualInvocationIndicator: View {
+    let isOn: Bool
+    let tint: Color
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack(alignment: isOn ? .trailing : .leading) {
+            Capsule()
+                .fill(trackGradient)
+                .overlay {
+                    Capsule()
+                        .strokeBorder(
+                            isOn ? tint.opacity(0.64) : Color.primary.opacity(0.16),
+                            lineWidth: 0.75
+                        )
+                }
+                .overlay(alignment: isOn ? .leading : .trailing) {
+                    Image(systemName: isOn ? "hand.raised.fill" : "sparkles")
+                        .font(.system(size: 6.5, weight: .bold))
+                        .foregroundStyle(isOn ? Color.white.opacity(0.82) : Color.primary.opacity(0.34))
+                        .padding(.horizontal, 5.5)
+                }
+
+            Circle()
+                .fill(knobGradient)
+                .overlay {
+                    Circle()
+                        .fill(isOn ? tint.opacity(0.82) : Color.primary.opacity(0.22))
+                        .frame(width: 3.5, height: 3.5)
+                }
+                .padding(2)
+                .shadow(
+                    color: isOn ? tint.opacity(0.34) : Color.black.opacity(0.16),
+                    radius: 1.5,
+                    y: 0.8
+                )
+        }
+        .frame(width: 36, height: 20)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isOn)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("仅允许手动调用")
+        .accessibilityValue(isOn ? "开启" : "关闭")
+        .help(isOn ? "仅允许手动调用" : "允许自动调用")
+    }
+
+    private var trackGradient: LinearGradient {
+        if isOn {
+            return LinearGradient(
+                colors: [tint.opacity(0.62), tint.opacity(0.30)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        return LinearGradient(
+            colors: [
+                Color.primary.opacity(colorScheme == .dark ? 0.15 : 0.09),
+                Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.04)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    private var knobGradient: LinearGradient {
+        LinearGradient(
+            colors: colorScheme == .dark
+                ? [Color.white.opacity(0.90), Color.white.opacity(0.62)]
+                : [Color.white, Color.white.opacity(0.84)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 }
 
 struct SettingsSheet: View {
     @ObservedObject var model: CoolSkillModel
     let onClose: (() -> Void)?
-    @State private var primary: ShortcutKey
-    @State private var secondary: ShortcutKey
 
     init(model: CoolSkillModel, onClose: (() -> Void)? = nil) {
         self.model = model
         self.onClose = onClose
-        _primary = State(initialValue: ShortcutKey(keyCode: model.shortcutConfiguration.primaryKeyCode) ?? .d)
-        _secondary = State(initialValue: ShortcutKey(keyCode: model.shortcutConfiguration.secondaryKeyCode) ?? .p)
     }
 
     var body: some View {
@@ -376,29 +596,6 @@ struct SettingsSheet: View {
             Text("设置")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
             settingGroup {
-                HStack {
-                    Text("全局快捷键")
-                    Spacer()
-                    Text("⌘")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    Picker("第一键", selection: $primary) {
-                        ForEach(ShortcutKey.allCases) { key in
-                            Text(key.displayName).tag(key)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 64)
-                    Picker("第二键", selection: $secondary) {
-                        ForEach(ShortcutKey.allCases) { key in
-                            Text(key.displayName).tag(key)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 64)
-                }
-                .padding(.vertical, 12)
-                Divider()
                 Toggle(
                     "登录时启动",
                     isOn: Binding(
@@ -417,13 +614,6 @@ struct SettingsSheet: View {
                     detail: "向 Codex 输入框写入 Skill",
                     isGranted: model.permissions.accessibilityGranted,
                     action: { model.requestAccessibilityPermission() }
-                )
-                Divider()
-                PermissionRow(
-                    title: "输入监听",
-                    detail: "使用全局快捷键呼出窗口",
-                    isGranted: model.permissions.inputMonitoringGranted,
-                    action: { model.requestInputMonitoringPermission() }
                 )
             }
             if let message = model.lifecycleMessage {
@@ -451,12 +641,6 @@ struct SettingsSheet: View {
         }
         .padding(24)
         .frame(width: 390)
-        .onChange(of: primary) { _ in
-            persistShortcut()
-        }
-        .onChange(of: secondary) { _ in
-            persistShortcut()
-        }
         .onAppear {
             model.refreshPermissions()
         }
@@ -468,13 +652,6 @@ struct SettingsSheet: View {
             .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func persistShortcut() {
-        guard primary != secondary else {
-            secondary = primary == .p ? .d : .p
-            return
-        }
-        model.setShortcut(primary: primary, secondary: secondary)
-    }
 }
 
 private struct PermissionRow: View {

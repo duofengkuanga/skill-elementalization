@@ -4,11 +4,18 @@ public struct SkillDocument: Equatable, Sendable {
     public let name: String
     public let description: String
     public let headings: [String]
+    public let isManualInvocationOnly: Bool
 
-    public init(name: String, description: String, headings: [String]) {
+    public init(
+        name: String,
+        description: String,
+        headings: [String],
+        isManualInvocationOnly: Bool = false
+    ) {
         self.name = name
         self.description = description
         self.headings = headings
+        self.isManualInvocationOnly = isManualInvocationOnly
     }
 }
 
@@ -60,7 +67,18 @@ public struct SkillDocumentParser: Sendable {
         return SkillDocument(
             name: unquote(rawName),
             description: unquote(description),
-            headings: headings
+            headings: headings,
+            isManualInvocationOnly: booleanValue(
+                for: "disable-model-invocation",
+                in: frontmatter
+            ) ?? false
+        )
+    }
+
+    public func parseAllowsImplicitInvocation(contents: String) -> Bool? {
+        booleanValue(
+            for: "allow_implicit_invocation",
+            in: contents.components(separatedBy: .newlines)
         )
     }
 
@@ -96,5 +114,14 @@ public struct SkillDocumentParser: Sendable {
             return String(value.dropFirst().dropLast())
         }
         return value
+    }
+
+    private func booleanValue(for key: String, in lines: [String]) -> Bool? {
+        guard let rawValue = scalarValue(for: key, in: lines) else { return nil }
+        switch unquote(rawValue).lowercased() {
+        case "true": return true
+        case "false": return false
+        default: return nil
+        }
     }
 }

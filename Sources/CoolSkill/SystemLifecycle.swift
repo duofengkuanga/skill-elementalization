@@ -5,31 +5,21 @@ import ServiceManagement
 
 struct PermissionSnapshot: Equatable {
     let accessibilityGranted: Bool
-    let inputMonitoringGranted: Bool
 }
 
 protocol PermissionControlling {
     func snapshot() -> PermissionSnapshot
     func requestAccessibility()
-    func requestInputMonitoring()
 }
 
 struct SystemPermissionController: PermissionControlling {
     func snapshot() -> PermissionSnapshot {
-        PermissionSnapshot(
-            accessibilityGranted: AXIsProcessTrusted(),
-            inputMonitoringGranted: CGPreflightListenEventAccess()
-        )
+        PermissionSnapshot(accessibilityGranted: AXIsProcessTrusted())
     }
 
     func requestAccessibility() {
         CodexAccessibilityInserter.requestPermission()
         openPrivacyPane("Privacy_Accessibility")
-    }
-
-    func requestInputMonitoring() {
-        _ = CGRequestListenEventAccess()
-        openPrivacyPane("Privacy_ListenEvent")
     }
 
     private func openPrivacyPane(_ anchor: String) {

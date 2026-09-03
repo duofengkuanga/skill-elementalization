@@ -30,7 +30,6 @@ private struct FakePermissionController: PermissionControlling {
 
     func snapshot() -> PermissionSnapshot { value }
     func requestAccessibility() {}
-    func requestInputMonitoring() {}
 }
 
 @main
@@ -56,8 +55,7 @@ struct AppModelVerification {
             loginItemManager: loginManager,
             permissionController: FakePermissionController(
                 value: PermissionSnapshot(
-                    accessibilityGranted: false,
-                    inputMonitoringGranted: false
+                    accessibilityGranted: false
                 )
             )
         )
@@ -69,11 +67,6 @@ struct AppModelVerification {
         model.moveSkill("deep-research", to: .mountain)
         precondition(model.selectedElement == .water)
         precondition(store.state.skills["deep-research"]?.manualElement == .mountain)
-
-        var changedShortcut: ChordConfiguration?
-        model.onShortcutChanged = { changedShortcut = $0 }
-        model.setShortcut(primary: .c, secondary: .v)
-        precondition(changedShortcut?.primaryKeyCode == ShortcutKey.c.keyCode)
 
         model.setLaunchAtLogin(true)
         precondition(loginManager.isEnabled)
@@ -93,7 +86,98 @@ struct AppModelVerification {
         precondition(model.selectedElement == nil)
         precondition(model.state.skills.isEmpty, "An empty agents directory must clear the catalog")
 
+        verifyCatalogRefreshRebuildsHistoricalUsage()
+
         try? FileManager.default.removeItem(at: root)
         print("App model verification passed")
+    }
+
+    @MainActor
+    private static func verifyCatalogRefreshRebuildsHistoricalUsage() {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("coolskill-catalog-usage-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let sessions = root.appendingPathComponent("sessions", isDirectory: true)
+        let skillPath = root.appendingPathComponent("skills/retro/SKILL.md")
+        do {
+            try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+            try [
+                #"{"type":"session_meta","payload":{"timestamp":"2026-09-03T10:00:00Z"}}"#,
+                #"{"type":"turn_context","turn_id":"turn-1","payload":{}}"#,
+                #"{"type":"response_item","payload":{"type":"custom_tool_call","input":"read \#(skillPath.path)"}}"#
+            ]
+            .joined(separator: "\n")
+            .appending("\n")
+            .write(to: sessions.appendingPathComponent("rollout.jsonl"), atomically: true, encoding: .utf8)
+
+            let store = LocalStateStore(fileURL: root.appendingPathComponent("state.json"))
+            let model = CoolSkillModel(
+                catalog: SkillCatalog(roots: [
+                    SkillSourceRoot(
+                        url: root.appendingPathComponent("skills"),
+                        kind: .sharedGlobal,
+                        precedence: 1
+                    )
+                ]),
+                store: store,
+                usageReconstructor: UsageReconstructor(roots: [sessions]),
+                inserter: FakeInserter(result: .failure(FakeInsertionError.rejected)),
+                loginItemManager: FakeLoginItemManager(),
+                permissionController: FakePermissionController(
+                    value: PermissionSnapshot(accessibilityGranted: false)
+                )
+            )
+
+            model.refreshUsage()
+            waitForUsageRefresh(model)
+            precondition(store.state.usageCursors.count == 1)
+
+            try FileManager.default.createDirectory(
+                at: skillPath.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try "---\nname: retro\ndescription: Reflect on work\n---\n"
+                .write(to: skillPath, atomically: true, encoding: .utf8)
+            model.refreshCatalog()
+            waitForUsageRefresh(model)
+
+            precondition(
+                model.state.skills.first?.usageCount == 1,
+                "Updating Skills must rebuild usage for newly discovered skills"
+            )
+            precondition(
+                model.state.skills.first?.lastUsedAt == ISO8601DateFormatter().date(from: "2026-09-03T10:00:00Z"),
+                "Updating Skills must rebuild the most recent invocation time"
+            )
+
+            let rollout = sessions.appendingPathComponent("rollout.jsonl")
+            let handle = try FileHandle(forWritingTo: rollout)
+            try handle.seekToEnd()
+            try handle.write(contentsOf: Data(([
+                #"{"type":"turn_context","turn_id":"turn-2","timestamp":"2026-09-03T10:00:30Z","payload":{}}"#,
+                #"{"type":"response_item","payload":{"type":"custom_tool_call","input":"read \#(skillPath.path)"}}"#
+            ].joined(separator: "\n") + "\n").utf8))
+            try handle.close()
+
+            model.refreshUsage()
+            waitForUsageRefresh(model)
+            precondition(model.state.skills.first?.usageCount == 2)
+            precondition(
+                model.state.skills.first?.lastUsedAt == ISO8601DateFormatter().date(from: "2026-09-03T10:00:30Z"),
+                "Incremental refresh must update the most recent invocation time"
+            )
+        } catch {
+            preconditionFailure("Catalog refresh usage verification failed: \(error)")
+        }
+    }
+
+    @MainActor
+    private static func waitForUsageRefresh(_ model: CoolSkillModel) {
+        let deadline = Date().addingTimeInterval(2)
+        while model.isRefreshingUsage && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+        precondition(!model.isRefreshingUsage, "Usage refresh did not finish")
     }
 }

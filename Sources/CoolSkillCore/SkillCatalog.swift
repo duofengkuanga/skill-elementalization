@@ -102,6 +102,8 @@ public struct SkillCatalog {
                         summary: document.description,
                         element: classification.element,
                         source: fileURL.path,
+                        isManualInvocationOnly: allowsImplicitInvocation(for: fileURL).map(!)
+                            ?? document.isManualInvocationOnly,
                         isLowConfidence: classification.isLowConfidence
                     )
                     if let current = selected[invocationName], current.precedence >= root.precedence {
@@ -131,6 +133,15 @@ public struct SkillCatalog {
             .replacingOccurrences(of: "_", with: "-")
             .replacingOccurrences(of: " ", with: "-")
         return normalized.unicodeScalars.filter { allowed.contains($0) }.map(String.init).joined()
+    }
+
+    private func allowsImplicitInvocation(for skillFileURL: URL) -> Bool? {
+        let policyURL = skillFileURL.deletingLastPathComponent()
+            .appendingPathComponent("agents/openai.yaml")
+        guard let contents = try? String(contentsOf: policyURL, encoding: .utf8) else {
+            return nil
+        }
+        return parser.parseAllowsImplicitInvocation(contents: contents)
     }
 
     private func skillFiles(under root: URL) -> [URL] {
