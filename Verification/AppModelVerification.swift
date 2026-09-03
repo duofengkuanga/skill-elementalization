@@ -86,11 +86,40 @@ struct AppModelVerification {
         precondition(model.selectedElement == nil)
         precondition(model.state.skills.isEmpty, "An empty agents directory must clear the catalog")
 
+        verifyCodexComposerAcquisitionWakesBeforeRetry()
         verifyCatalogRefreshRebuildsHistoricalUsage()
         verifyCatalogRefreshUpdatesImplicitInvocationPolicy()
 
         try? FileManager.default.removeItem(at: root)
         print("App model verification passed")
+    }
+
+    private static func verifyCodexComposerAcquisitionWakesBeforeRetry() {
+        var events: [String] = []
+        var timeouts: [TimeInterval] = []
+        do {
+            let composer: String = try CodexComposerAcquisition.locate(
+                lookup: { timeout in
+                    timeouts.append(timeout)
+                    events.append(timeout == 0 ? "probe" : "retry")
+                    guard timeout > 0 else {
+                        throw CodexInsertionError.composerNotFocused
+                    }
+                    return "composer"
+                },
+                requestWindow: {
+                    events.append("wake")
+                }
+            )
+            precondition(composer == "composer")
+            precondition(timeouts == [0, 5], "The first composer probe must not wait before waking Codex")
+            precondition(
+                events == ["probe", "wake", "retry"],
+                "A missing composer must wake Codex before the bounded retry"
+            )
+        } catch {
+            preconditionFailure("Composer acquisition should recover after waking Codex: \(error)")
+        }
     }
 
     @MainActor

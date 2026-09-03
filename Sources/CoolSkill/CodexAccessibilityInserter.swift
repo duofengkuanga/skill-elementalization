@@ -36,6 +36,21 @@ protocol SkillInserting {
     func insert(invocationName: String) -> Result<InsertionPlan, Error>
 }
 
+enum CodexComposerAcquisition {
+    static func locate<Value>(
+        lookup: (TimeInterval) throws -> Value,
+        requestWindow: () -> Void,
+        retryTimeout: TimeInterval = 5
+    ) throws -> Value {
+        do {
+            return try lookup(0)
+        } catch CodexInsertionError.composerNotFocused {
+            requestWindow()
+            return try lookup(retryTimeout)
+        }
+    }
+}
+
 final class CodexAccessibilityInserter: SkillInserting {
     private let planner: InsertionPlanner
     private let bundleIdentifier: String
@@ -54,14 +69,15 @@ final class CodexAccessibilityInserter: SkillInserting {
             guard AXIsProcessTrusted() else {
                 throw CodexInsertionError.permissionRequired
             }
-            let composer: AXUIElement
-            do {
-                composer = try focusedCodexComposer(in: application)
-            } catch CodexInsertionError.composerNotFocused {
-                requestCodexWindow()
-                _ = application.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
-                composer = try focusedCodexComposer(in: application, timeout: 5)
-            }
+            let composer: AXUIElement = try CodexComposerAcquisition.locate(
+                lookup: { timeout in
+                    try focusedCodexComposer(in: application, timeout: timeout)
+                },
+                requestWindow: {
+                    requestCodexWindow()
+                    _ = application.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+                }
+            )
             let text = try currentText(from: composer)
             let selection = try currentSelection(from: composer)
             let plan = try planner.plan(
@@ -119,7 +135,7 @@ final class CodexAccessibilityInserter: SkillInserting {
 
     private func focusedCodexComposer(
         in application: NSRunningApplication,
-        timeout: TimeInterval = 1.5
+        timeout: TimeInterval
     ) throws -> AXUIElement {
         let appElement = AXUIElementCreateApplication(application.processIdentifier)
         let deadline = Date().addingTimeInterval(timeout)
