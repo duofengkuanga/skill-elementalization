@@ -19,7 +19,7 @@ enum CodexInsertionError: Error, LocalizedError {
         case .codexNotRunning:
             return "请先打开 Codex"
         case .composerNotFocused:
-            return "请先将光标放入 Codex 对话框"
+            return "未能定位 Codex 可写的对话框；请先打开一个对话"
         case .composerNotWritable:
             return "当前 Codex 控件不可写入"
         case .textUnavailable:
@@ -107,24 +107,50 @@ final class CodexAccessibilityInserter: SkillInserting {
 
     private func focusedCodexComposer(in application: NSRunningApplication) throws -> AXUIElement {
         let appElement = AXUIElementCreateApplication(application.processIdentifier)
+        let deadline = Date().addingTimeInterval(1.5)
+
+        repeat {
+            if let focusedElement = focusedElement(in: appElement),
+               let composer = writableComposer(from: focusedElement) {
+                return composer
+            }
+
+            if let composer = findWritableComposer(in: appElement),
+               focus(composer, in: appElement) {
+                return composer
+            }
+
+            guard Date() < deadline else { break }
+            RunLoop.current.run(until: min(deadline, Date().addingTimeInterval(0.05)))
+        } while true
+
+        throw CodexInsertionError.composerNotFocused
+    }
+
+    private func focusedElement(in application: AXUIElement) -> AXUIElement? {
         var focusedValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
-            appElement,
+            application,
             kAXFocusedUIElementAttribute as CFString,
             &focusedValue
         ) == .success,
-        let focusedValue else {
-            throw CodexInsertionError.composerNotFocused
+        let focusedValue,
+        CFGetTypeID(focusedValue) == AXUIElementGetTypeID() else {
+            return nil
         }
-        if CFGetTypeID(focusedValue) == AXUIElementGetTypeID(),
-           let element = writableComposer(from: focusedValue as! AXUIElement) {
-            return element
+        return (focusedValue as! AXUIElement)
+    }
+
+    private func focus(_ composer: AXUIElement, in application: AXUIElement) -> Bool {
+        guard AXUIElementSetAttributeValue(
+            composer,
+            kAXFocusedAttribute as CFString,
+            true as CFTypeRef
+        ) == .success,
+        let focusedElement = focusedElement(in: application) else {
+            return false
         }
-        if let composer = findWritableComposer(in: appElement) {
-            _ = AXUIElementSetAttributeValue(composer, kAXFocusedAttribute as CFString, true as CFTypeRef)
-            return composer
-        }
-        throw CodexInsertionError.composerNotFocused
+        return CFEqual(focusedElement, composer)
     }
 
     private func writableComposer(from element: AXUIElement) -> AXUIElement? {
