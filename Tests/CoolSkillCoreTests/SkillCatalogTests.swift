@@ -19,7 +19,7 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertEqual(document.name, "deep-research")
         XCTAssertEqual(document.description, "Research complex topics with evidence.")
         XCTAssertEqual(document.headings, ["Workflow", "Verify sources"])
-        XCTAssertTrue(document.isManualInvocationOnly)
+        XCTAssertFalse(document.allowsImplicitInvocation)
         XCTAssertEqual(
             SkillDocumentParser().parseAllowsImplicitInvocation(
                 contents: "policy:\n  allow_implicit_invocation: false\n"
@@ -33,7 +33,7 @@ final class SkillCatalogTests: XCTestCase {
 
         XCTAssertEqual(document.name, "retro")
         XCTAssertTrue(document.headings.isEmpty)
-        XCTAssertFalse(document.isManualInvocationOnly)
+        XCTAssertTrue(document.allowsImplicitInvocation)
     }
 
     func testClassifierCoversFourElementsAndFallback() {
@@ -86,7 +86,7 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertEqual(result.skills.count, 1)
         XCTAssertEqual(result.skills.first?.element, .fire)
         XCTAssertEqual(result.skills.first?.source.contains("high"), true)
-        XCTAssertEqual(result.skills.first?.isManualInvocationOnly, true)
+        XCTAssertEqual(result.skills.first?.allowsImplicitInvocation, false)
         XCTAssertEqual(result.issues.count, 1)
     }
 

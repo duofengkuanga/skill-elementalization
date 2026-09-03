@@ -4,18 +4,18 @@ public struct SkillDocument: Equatable, Sendable {
     public let name: String
     public let description: String
     public let headings: [String]
-    public let isManualInvocationOnly: Bool
+    public let allowsImplicitInvocation: Bool
 
     public init(
         name: String,
         description: String,
         headings: [String],
-        isManualInvocationOnly: Bool = false
+        allowsImplicitInvocation: Bool = true
     ) {
         self.name = name
         self.description = description
         self.headings = headings
-        self.isManualInvocationOnly = isManualInvocationOnly
+        self.allowsImplicitInvocation = allowsImplicitInvocation
     }
 }
 
@@ -68,10 +68,10 @@ public struct SkillDocumentParser: Sendable {
             name: unquote(rawName),
             description: unquote(description),
             headings: headings,
-            isManualInvocationOnly: booleanValue(
+            allowsImplicitInvocation: !(booleanValue(
                 for: "disable-model-invocation",
                 in: frontmatter
-            ) ?? false
+            ) ?? false)
         )
     }
 

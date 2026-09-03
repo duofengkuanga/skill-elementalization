@@ -101,7 +101,7 @@ struct RenderPreview {
                 element: .wind,
                 usageCount: 18,
                 lastUsedAt: Date(timeIntervalSince1970: 1_788_400_535),
-                isManualInvocationOnly: true
+                allowsImplicitInvocation: false
             ),
             Skill(
                 invocationName: "chrome-use",
@@ -118,7 +118,7 @@ struct RenderPreview {
                 element: .wind,
                 usageCount: 7,
                 lastUsedAt: Date(timeIntervalSince1970: 1_788_389_704),
-                isManualInvocationOnly: true
+                allowsImplicitInvocation: false
             ),
             Skill(
                 invocationName: "unknown-tool",
@@ -139,7 +139,7 @@ struct RenderPreview {
                 element: .wind,
                 usageCount: 123_456,
                 lastUsedAt: Date(timeIntervalSince1970: 1_788_400_535),
-                isManualInvocationOnly: true
+                allowsImplicitInvocation: false
             ),
             Skill(
                 invocationName: "zero-count",

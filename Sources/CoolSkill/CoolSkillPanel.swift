@@ -11,7 +11,7 @@ struct CoolSkillPanel: View {
     let showsPinControl: Bool
     let reduceMotionOverride: Bool?
     @Environment(\.colorScheme) private var colorScheme
-    @State private var isShowingSkillList = false
+    @State private var listPresentation = SkillListPresentationState()
     @State private var elementOrder = Element.allCases
     @State private var rightDragOriginOrder: [Element]?
 
@@ -189,9 +189,7 @@ struct CoolSkillPanel: View {
 
     private func revealList(for element: Element) {
         model.select(element)
-        guard !isShowingSkillList else { return }
-        isShowingSkillList = true
-        onPresentationChange(true)
+        apply(listPresentation.reveal())
     }
 
     private func scheduleDismissal() {
@@ -222,16 +220,19 @@ struct CoolSkillPanel: View {
     }
 
     private func synchronizePresentation(with selectedElement: Element?) {
-        guard let selectedElement else {
-            guard isShowingSkillList else { return }
-            isShowingSkillList = false
-            onPresentationChange(false)
-            return
+        let command = listPresentation.synchronize(hasSelection: selectedElement != nil)
+        if command == .show, let selectedElement {
+            model.select(selectedElement)
         }
-        guard !isShowingSkillList else { return }
-        isShowingSkillList = true
-        model.select(selectedElement)
-        onPresentationChange(true)
+        apply(command)
+    }
+
+    private func apply(_ command: SkillListPresentationCommand?) {
+        switch command {
+        case .show: onPresentationChange(true)
+        case .hide: onPresentationChange(false)
+        case nil: break
+        }
     }
 }
 
@@ -462,8 +463,8 @@ private struct SkillRow: View {
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityLabel("\(skill.name)，\(skill.summary)，最近调用：\(lastUsedText)")
-            ManualInvocationIndicator(
-                isOn: skill.isManualInvocationOnly,
+            ImplicitInvocationIndicator(
+                isOn: skill.allowsImplicitInvocation,
                 tint: accentColor
             )
         }
@@ -506,7 +507,7 @@ private struct SkillRow: View {
     }()
 }
 
-private struct ManualInvocationIndicator: View {
+private struct ImplicitInvocationIndicator: View {
     let isOn: Bool
     let tint: Color
 
@@ -525,7 +526,7 @@ private struct ManualInvocationIndicator: View {
                         )
                 }
                 .overlay(alignment: isOn ? .leading : .trailing) {
-                    Image(systemName: isOn ? "hand.raised.fill" : "sparkles")
+                    Image(systemName: isOn ? "sparkles" : "hand.raised.fill")
                         .font(.system(size: 6.5, weight: .bold))
                         .foregroundStyle(isOn ? Color.white.opacity(0.82) : Color.primary.opacity(0.34))
                         .padding(.horizontal, 5.5)
@@ -548,9 +549,9 @@ private struct ManualInvocationIndicator: View {
         .frame(width: 36, height: 20)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isOn)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("仅允许手动调用")
+        .accessibilityLabel("允许自动调用")
         .accessibilityValue(isOn ? "开启" : "关闭")
-        .help(isOn ? "仅允许手动调用" : "允许自动调用")
+        .help(isOn ? "允许自动调用" : "仅允许手动调用")
     }
 
     private var trackGradient: LinearGradient {

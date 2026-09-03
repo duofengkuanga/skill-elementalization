@@ -68,7 +68,7 @@ struct CoreVerification {
             # Workflow
             """)
             precondition(parsed.description == "Research complex topics with evidence.")
-            precondition(parsed.isManualInvocationOnly)
+            precondition(!parsed.allowsImplicitInvocation)
         } catch {
             preconditionFailure("Parser verification failed: \(error)")
         }
@@ -77,6 +77,13 @@ struct CoreVerification {
         verifyAgentsOnlyCatalog()
         verifyLocalStateStore()
         verifyUsageReconstruction()
+        verifyCurrentUsageRecordFormat()
+        var presentation = SkillListPresentationState()
+        precondition(presentation.reveal() == .show)
+        precondition(
+            presentation.reveal() == .show,
+            "Re-entering an element must keep the pending list presentation alive"
+        )
         verifyMalformedUsageRecord()
         verifyInsertionPlanning()
         verifyPanelPlacement()
@@ -146,7 +153,7 @@ struct CoreVerification {
             ]).scan()
             precondition(result.skills.count == 1)
             precondition(result.skills.first?.element == .fire)
-            precondition(result.skills.first?.isManualInvocationOnly == true)
+            precondition(result.skills.first?.allowsImplicitInvocation == false)
             precondition(result.issues.count == 1)
         } catch {
             preconditionFailure("Catalog verification failed: \(error)")
@@ -249,6 +256,39 @@ struct CoreVerification {
             preconditionFailure("Usage reconstruction verification failed: \(error)")
         }
         try? FileManager.default.removeItem(at: root)
+    }
+
+    private static func verifyCurrentUsageRecordFormat() {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("coolskill-current-usage-\(UUID().uuidString)", isDirectory: true)
+        let rollout = root.appendingPathComponent("rollout.jsonl")
+        let skillPath = root.appendingPathComponent("skills/diagnosing-bugs/SKILL.md").path
+        defer { try? FileManager.default.removeItem(at: root) }
+        do {
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            try [
+                #"{"timestamp":"2026-09-03T07:39:54Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-current"}}"#,
+                #"{"timestamp":"2026-09-03T07:39:54Z","type":"turn_context","payload":{"turn_id":"turn-current"}}"#,
+                #"{"timestamp":"2026-09-03T07:39:54Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"[$diagnosing-bugs](/tmp/diagnosing-bugs/SKILL.md) investigate"}]}}"#
+            ]
+            .joined(separator: "\n")
+            .appending("\n")
+            .write(to: rollout, atomically: true, encoding: .utf8)
+            let skill = Skill(
+                invocationName: "diagnosing-bugs",
+                name: "diagnosing-bugs",
+                summary: "",
+                element: .water,
+                source: skillPath
+            )
+            let result = UsageReconstructor(roots: [root]).scan(skills: [skill], cursors: [:])
+            precondition(result.events.count == 1, "Current response_item user messages must count explicit Skills")
+            precondition(
+                result.events.first?.occurredAt == ISO8601DateFormatter().date(from: "2026-09-03T07:39:54Z")
+            )
+        } catch {
+            preconditionFailure("Current usage record verification failed: \(error)")
+        }
     }
 
     private static func verifyMalformedUsageRecord() {

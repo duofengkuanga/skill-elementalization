@@ -102,8 +102,8 @@ public struct SkillCatalog {
                         summary: document.description,
                         element: classification.element,
                         source: fileURL.path,
-                        isManualInvocationOnly: allowsImplicitInvocation(for: fileURL).map(!)
-                            ?? document.isManualInvocationOnly,
+                        allowsImplicitInvocation: allowsImplicitInvocation(for: fileURL)
+                            ?? document.allowsImplicitInvocation,
                         isLowConfidence: classification.isLowConfidence
                     )
                     if let current = selected[invocationName], current.precedence >= root.precedence {

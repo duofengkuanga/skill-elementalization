@@ -39,6 +39,22 @@ final class UsageReconstructorTests: XCTestCase {
         XCTAssertEqual(second.events.count, 1)
         XCTAssertNotEqual(first.events.first?.id, second.events.first?.id)
     }
+
+    func testCurrentResponseItemUserMessageCountsExplicitInvocation() throws {
+        let fixture = try UsageFixture()
+        defer { fixture.cleanup() }
+        try fixture.write([
+            fixture.taskStarted("turn-current"),
+            fixture.currentTurn("turn-current"),
+            fixture.responseItemUserMessage("[$retro](/tmp/skills/retro/SKILL.md) reflect")
+        ])
+
+        let result = fixture.reconstructor.scan(skills: [fixture.skill], cursors: [:])
+
+        XCTAssertEqual(result.events.count, 1)
+        XCTAssertEqual(result.events.first?.invocationName, "retro")
+        XCTAssertEqual(result.events.first?.occurredAt, ISO8601DateFormatter().date(from: "2026-09-03T07:39:54Z"))
+    }
 }
 
 private final class UsageFixture {
@@ -73,6 +89,18 @@ private final class UsageFixture {
 
     func turn(_ id: String) -> String {
         #"{"type":"turn_context","turn_id":"\#(id)","payload":{}}"#
+    }
+
+    func taskStarted(_ id: String) -> String {
+        #"{"timestamp":"2026-09-03T07:39:54Z","type":"event_msg","payload":{"type":"task_started","turn_id":"\#(id)"}}"#
+    }
+
+    func currentTurn(_ id: String) -> String {
+        #"{"timestamp":"2026-09-03T07:39:54Z","type":"turn_context","payload":{"turn_id":"\#(id)"}}"#
+    }
+
+    func responseItemUserMessage(_ message: String) -> String {
+        #"{"timestamp":"2026-09-03T07:39:54Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"\#(message)"}]}}"#
     }
 
     func userMessage(_ message: String) -> String {

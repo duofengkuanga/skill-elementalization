@@ -173,10 +173,18 @@ public struct UsageReconstructor {
             contains(data, "\"type\":\"custom_tool_call\"")
                 || contains(data, "\"type\": \"custom_tool_call\"")
         ) && contains(data, "SKILL.md")
+        let isCurrentUserMessage = (
+            contains(data, "\"type\":\"response_item\"")
+                || contains(data, "\"type\": \"response_item\"")
+        ) && (
+            contains(data, "\"role\":\"user\"")
+                || contains(data, "\"role\": \"user\"")
+        )
         let needsStructuredRead = contains(data, "turn_context")
             || contains(data, "task_started")
             || contains(data, "user_message")
             || contains(data, "session_meta")
+            || isCurrentUserMessage
         guard isSkillLoad || needsStructuredRead else { return }
 
         let rawLine = String(decoding: data, as: UTF8.self)
@@ -193,33 +201,49 @@ public struct UsageReconstructor {
                 }
                 return
             }
-                let type = object["type"] as? String
-                let payload = object["payload"] as? [String: Any] ?? [:]
-                let payloadType = payload["type"] as? String
+            let type = object["type"] as? String
+            let payload = object["payload"] as? [String: Any] ?? [:]
+            let payloadType = payload["type"] as? String
 
-                if type == "turn_context", let turnID = object["turn_id"] as? String {
-                    currentTurnID = turnID
-                } else if payloadType == "task_started", let turnID = payload["turn_id"] as? String {
-                    currentTurnID = turnID
-                }
+            if type == "turn_context",
+               let turnID = (object["turn_id"] ?? payload["turn_id"]) as? String {
+                currentTurnID = turnID
+            } else if payloadType == "task_started", let turnID = payload["turn_id"] as? String {
+                currentTurnID = turnID
+            }
 
-                if let timestamp = date(from: object["timestamp"] ?? payload["started_at"] ?? payload["timestamp"]) {
-                    currentTimestamp = timestamp
-                }
+            if let timestamp = date(from: object["timestamp"] ?? payload["started_at"] ?? payload["timestamp"]) {
+                currentTimestamp = timestamp
+            }
 
-                if type == "event_msg", payloadType == "user_message" {
-                    let message = payload["message"] as? String ?? ""
-                    let activationScope = currentTurnID ?? "offset-\(lineOffset)"
-                    for invocationName in explicitInvocations(in: message) where knownNames.contains(invocationName) {
-                        insertEvent(
-                            invocationName: invocationName,
-                            scope: activationScope,
-                            fileURL: fileURL,
-                            date: currentTimestamp,
-                            into: &eventsByID
-                        )
-                    }
+            let userMessage: String?
+            if type == "event_msg", payloadType == "user_message" {
+                userMessage = payload["message"] as? String
+            } else if type == "response_item",
+                      payloadType == "message",
+                      payload["role"] as? String == "user" {
+                let content = payload["content"] as? [[String: Any]] ?? []
+                userMessage = content.compactMap { item in
+                    guard item["type"] as? String == "input_text" else { return nil }
+                    return item["text"] as? String
+                }.joined(separator: "\n")
+            } else {
+                userMessage = nil
+            }
+
+            if let userMessage {
+                let activationScope = currentTurnID ?? "offset-\(lineOffset)"
+                for invocationName in explicitInvocations(in: userMessage)
+                where knownNames.contains(invocationName) {
+                    insertEvent(
+                        invocationName: invocationName,
+                        scope: activationScope,
+                        fileURL: fileURL,
+                        date: currentTimestamp,
+                        into: &eventsByID
+                    )
                 }
+            }
         }
 
         if isSkillLoad {
