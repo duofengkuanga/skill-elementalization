@@ -54,7 +54,14 @@ final class CodexAccessibilityInserter: SkillInserting {
             guard AXIsProcessTrusted() else {
                 throw CodexInsertionError.permissionRequired
             }
-            let composer = try focusedCodexComposer(in: application)
+            let composer: AXUIElement
+            do {
+                composer = try focusedCodexComposer(in: application)
+            } catch CodexInsertionError.composerNotFocused {
+                requestCodexWindow()
+                _ = application.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+                composer = try focusedCodexComposer(in: application, timeout: 5)
+            }
             let text = try currentText(from: composer)
             let selection = try currentSelection(from: composer)
             let plan = try planner.plan(
@@ -105,9 +112,17 @@ final class CodexAccessibilityInserter: SkillInserting {
         return application
     }
 
-    private func focusedCodexComposer(in application: NSRunningApplication) throws -> AXUIElement {
+    private func requestCodexWindow() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
+    }
+
+    private func focusedCodexComposer(
+        in application: NSRunningApplication,
+        timeout: TimeInterval = 1.5
+    ) throws -> AXUIElement {
         let appElement = AXUIElementCreateApplication(application.processIdentifier)
-        let deadline = Date().addingTimeInterval(1.5)
+        let deadline = Date().addingTimeInterval(timeout)
 
         repeat {
             if let focusedElement = focusedElement(in: appElement),
