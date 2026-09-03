@@ -27,7 +27,6 @@ final class CoolSkillModel: ObservableObject {
     private let loginItemManager: LoginItemManaging
     private let permissionController: PermissionControlling
     private var hasLoadedCatalog = false
-    private var insertionMessageTask: Task<Void, Never>?
 
     var onShortcutChanged: ((ChordConfiguration) -> Void)?
     var onPermissionRefresh: (() -> Void)?
@@ -81,7 +80,7 @@ final class CoolSkillModel: ObservableObject {
     func prepareForPresentation() {
         state.send(.clearElement)
         keyboardSelectionIndex = nil
-        insertionMessage = nil
+        dismissInsertionMessage()
         loadInitialCatalogIfNeeded()
     }
 
@@ -214,20 +213,16 @@ final class CoolSkillModel: ObservableObject {
     func invoke(_ skill: Skill) -> Bool {
         switch inserter.insert(invocationName: skill.commandName) {
         case .success:
-            insertionMessageTask?.cancel()
-            insertionMessage = nil
+            dismissInsertionMessage()
             return true
         case let .failure(error):
-            let message = error.localizedDescription
-            insertionMessage = message
-            insertionMessageTask?.cancel()
-            insertionMessageTask = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
-                guard !Task.isCancelled, self?.insertionMessage == message else { return }
-                self?.insertionMessage = nil
-            }
+            insertionMessage = error.localizedDescription
             return false
         }
+    }
+
+    func dismissInsertionMessage() {
+        insertionMessage = nil
     }
 
     func loadInitialCatalogIfNeeded() {

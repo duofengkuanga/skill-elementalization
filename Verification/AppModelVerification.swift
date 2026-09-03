@@ -86,6 +86,8 @@ struct AppModelVerification {
         inserter.result = .failure(FakeInsertionError.rejected)
         precondition(!model.invoke(FixtureSkills.all[0]))
         precondition(model.insertionMessage != nil)
+        model.dismissInsertionMessage()
+        precondition(model.insertionMessage == nil)
 
         model.prepareForPresentation()
         precondition(model.selectedElement == nil)

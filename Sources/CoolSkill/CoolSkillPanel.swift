@@ -32,19 +32,7 @@ struct CoolSkillPanel: View {
 
     var body: some View {
         GeometryReader { proxy in
-            ZStack(alignment: .bottom) {
-                elementRail(size: proxy.size)
-                if let message = model.insertionMessage {
-                    Label(message, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .lineLimit(2)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(.thickMaterial, in: Capsule())
-                        .padding(.bottom, 14)
-                }
-            }
+            elementRail(size: proxy.size)
         }
         .background {
             ZStack {
@@ -60,6 +48,19 @@ struct CoolSkillPanel: View {
             )
         ) {
             SettingsSheet(model: model)
+        }
+        .alert(
+            "无法插入 Skill",
+            isPresented: Binding(
+                get: { model.insertionMessage != nil },
+                set: { if !$0 { model.dismissInsertionMessage() } }
+            )
+        ) {
+            Button("好", role: .cancel) {
+                model.dismissInsertionMessage()
+            }
+        } message: {
+            Text(model.insertionMessage ?? "")
         }
         .task {
             model.loadInitialCatalogIfNeeded()
