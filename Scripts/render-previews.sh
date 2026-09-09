@@ -33,3 +33,5 @@ swiftc \
 "$preview_build/render-preview" "$preview_build/list-dark.png" list-dark
 "$preview_build/render-preview" "$preview_build/list-light.png" list-light
 "$preview_build/render-preview" "$preview_build/list-stress-dark.png" list-stress-dark
+"$preview_build/render-preview" "$preview_build/list-wide-dark.png" list-wide-dark
+"$preview_build/render-preview" "$preview_build/list-wide-light.png" list-wide-light

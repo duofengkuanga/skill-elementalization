@@ -238,6 +238,7 @@ struct CoolSkillPanel: View {
 
 struct SkillListPanelContent: View {
     @ObservedObject var model: CoolSkillModel
+    var onResizeChanged: (Bool) -> Void = { _ in }
     let onHoverChanged: (Bool) -> Void
     @Environment(\.colorScheme) private var colorScheme
 
@@ -272,6 +273,19 @@ struct SkillListPanelContent: View {
             } else {
                 Color.clear
             }
+            HStack {
+                Spacer()
+                Label("拖拽调整大小", systemImage: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
+                    .background(.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay { ListResizeHandle(onResizeChanged: onResizeChanged) }
+                    .help("拖拽调整技能列表的宽度和高度")
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
@@ -294,6 +308,65 @@ struct SkillListPanelContent: View {
         case (.water?, .dark): return Color(red: 0.06, green: 0.14, blue: 0.29)
         case (.mountain?, .dark): return Color(red: 0.22, green: 0.16, blue: 0.07)
         default: return Color(nsColor: .windowBackgroundColor)
+        }
+    }
+}
+
+private struct ListResizeHandle: NSViewRepresentable {
+    let onResizeChanged: (Bool) -> Void
+
+    func makeNSView(context: Context) -> HandleView {
+        let view = HandleView()
+        view.onResizeChanged = onResizeChanged
+        return view
+    }
+
+    func updateNSView(_ view: HandleView, context: Context) {
+        view.onResizeChanged = onResizeChanged
+    }
+
+    final class HandleView: NSView {
+        var onResizeChanged: (Bool) -> Void = { _ in }
+        private var dragOrigin: NSPoint?
+        private var originalFrame = NSRect.zero
+        private let resizeCursor: NSCursor = {
+            let image = NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: "调整大小")!
+            image.size = NSSize(width: 22, height: 22)
+            return NSCursor(image: image, hotSpot: NSPoint(x: 11, y: 11))
+        }()
+
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        override func resetCursorRects() {
+            addCursorRect(bounds, cursor: resizeCursor)
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            guard let window else { return }
+            dragOrigin = NSEvent.mouseLocation
+            originalFrame = window.frame
+            resizeCursor.push()
+            onResizeChanged(true)
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            guard let window, let dragOrigin else { return }
+            let pointer = NSEvent.mouseLocation
+            let visible = window.screen?.visibleFrame ?? originalFrame
+            let width = min(max(window.minSize.width, originalFrame.width + pointer.x - dragOrigin.x),
+                            max(window.minSize.width, visible.maxX - originalFrame.minX))
+            let height = min(max(window.minSize.height, originalFrame.height - pointer.y + dragOrigin.y),
+                             max(window.minSize.height, originalFrame.maxY - visible.minY))
+            window.setFrame(NSRect(x: originalFrame.minX, y: originalFrame.maxY - height,
+                                   width: width, height: height), display: true)
+            resizeCursor.set()
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            guard dragOrigin != nil else { return }
+            dragOrigin = nil
+            NSCursor.pop()
+            onResizeChanged(false)
         }
     }
 }
@@ -434,7 +507,6 @@ private struct SkillRow: View {
                             Text(skill.name)
                                 .font(.system(size: 13, weight: .semibold))
                                 .lineLimit(1)
-                            Spacer(minLength: 4)
                             if skill.usageCount > 0 {
                                 Text("\(skill.usageCount)")
                                     .font(.system(size: 10, weight: .medium, design: .monospaced))
@@ -442,6 +514,7 @@ private struct SkillRow: View {
                                     .padding(.horizontal, 7)
                                     .padding(.vertical, 3)
                                     .background(Color.primary.opacity(0.045), in: Capsule())
+                                    .fixedSize()
                             }
                         }
                         Text(skill.chineseSummary)

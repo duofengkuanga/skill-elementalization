@@ -14,7 +14,7 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
     private var isResizingList = false
     private var preferredListSize = NSSize(width: 300, height: 360)
 
-    private let collapsedWidth: CGFloat = 48
+    private let collapsedWidth: CGFloat = 40
     private let collapsedHeight: CGFloat = 260
     private let listWidth: CGFloat = 300
     private let listHeight: CGFloat = 360
@@ -173,10 +173,18 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         dismissListTask?.cancel()
         guard !isResizingList else { return }
         dismissListTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 320_000_000)
-            guard !Task.isCancelled else { return }
-            self?.hideListImmediately()
-            self?.model.clearSelection()
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                guard !Task.isCancelled, let self, !self.isResizingList else { return }
+                let pointer = NSEvent.mouseLocation
+                if self.listPanel?.frame.insetBy(dx: -20, dy: -20).contains(pointer) == true
+                    || self.window.frame.insetBy(dx: -12, dy: -12).contains(pointer) {
+                    continue
+                }
+                self.hideListImmediately()
+                self.model.clearSelection()
+                return
+            }
         }
     }
 
@@ -201,7 +209,16 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         panel.level = window.level
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         let contentView = NSHostingView(
-            rootView: SkillListPanelContent(model: model) { [weak self] hovering in
+            rootView: SkillListPanelContent(model: model, onResizeChanged: { [weak self, weak panel] resizing in
+                guard let self, let panel else { return }
+                self.isResizingList = resizing
+                if resizing {
+                    self.dismissListTask?.cancel()
+                } else {
+                    self.preferredListSize = panel.frame.size
+                    self.scheduleListDismissal()
+                }
+            }) { [weak self] hovering in
                 self?.setListPresentation(hovering)
             }
             .frame(minWidth: 260, minHeight: 180)
