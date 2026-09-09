@@ -54,6 +54,7 @@ public struct Skill: Codable, Hashable, Identifiable, Sendable {
             "tdd": "先写测试，再用红绿重构完成开发。",
             "to-spec": "把当前讨论整理成可执行的本地规格。",
             "to-tickets": "把方案拆成有依赖关系的小任务。",
+            "wait-what": "补充上下文，用更简单的话重新解释。",
             "wayfinder": "把大型工作拆成可逐步推进的路线图。",
             "writing-for-agents": "编写让智能体容易理解和执行的文档。"
         ]
