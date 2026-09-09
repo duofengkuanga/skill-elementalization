@@ -12,3 +12,11 @@ swiftc -warnings-as-errors -D COOLSKILL_LIFECYCLE_TEST \
   -Xlinker -rpath -Xlinker @executable_path \
   -o "$manual_build/lifecycle-verification"
 "$manual_build/lifecycle-verification"
+
+swiftc -warnings-as-errors -D COOLSKILL_LIFECYCLE_TEST \
+  -I "$manual_build" -L "$manual_build" -lCoolSkillCore \
+  "$repo_root"/Sources/CoolSkill/*.swift \
+  "$repo_root/Verification/ListResizeVerification.swift" \
+  -Xlinker -rpath -Xlinker @executable_path \
+  -o "$manual_build/list-resize-verification"
+"$manual_build/list-resize-verification"
