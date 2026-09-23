@@ -11,9 +11,6 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
     private var keyMonitor: Any?
     private var dismissListTask: Task<Void, Never>?
     private var isSnapping = false
-    private var isResizingList = false
-    private var preferredListSize = NSSize(width: 300, height: 360)
-
     private let collapsedWidth: CGFloat = 40
     private let collapsedHeight: CGFloat = 260
     private let listWidth: CGFloat = 300
@@ -171,11 +168,10 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
 
     private func scheduleListDismissal() {
         dismissListTask?.cancel()
-        guard !isResizingList else { return }
         dismissListTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 600_000_000)
-                guard !Task.isCancelled, let self, !self.isResizingList else { return }
+                guard !Task.isCancelled, let self else { return }
                 let pointer = NSEvent.mouseLocation
                 if self.listPanel?.frame.insetBy(dx: -20, dy: -20).contains(pointer) == true
                     || self.window.frame.insetBy(dx: -12, dy: -12).contains(pointer) {
@@ -196,7 +192,7 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
     private func makeListPanel() -> NSPanel {
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: listWidth, height: listHeight),
-            styleMask: [.borderless, .nonactivatingPanel, .resizable],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -209,16 +205,7 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         panel.level = window.level
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         let contentView = NSHostingView(
-            rootView: SkillListPanelContent(model: model, onResizeChanged: { [weak self, weak panel] resizing in
-                guard let self, let panel else { return }
-                self.isResizingList = resizing
-                if resizing {
-                    self.dismissListTask?.cancel()
-                } else {
-                    self.preferredListSize = panel.frame.size
-                    self.scheduleListDismissal()
-                }
-            }) { [weak self] hovering in
+            rootView: SkillListPanelContent(model: model) { [weak self] hovering in
                 self?.setListPresentation(hovering)
             }
             .frame(minWidth: 260, minHeight: 180)
@@ -229,21 +216,6 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         panel.contentView?.layer?.cornerRadius = 20
         panel.contentView?.layer?.masksToBounds = true
         return panel
-    }
-
-    func windowWillStartLiveResize(_ notification: Notification) {
-        guard notification.object as? NSWindow === listPanel else { return }
-        isResizingList = true
-        dismissListTask?.cancel()
-    }
-
-    func windowDidEndLiveResize(_ notification: Notification) {
-        guard let panel = notification.object as? NSPanel, panel === listPanel else { return }
-        preferredListSize = panel.frame.size
-        isResizingList = false
-        if !panel.frame.insetBy(dx: -8, dy: -8).contains(NSEvent.mouseLocation) {
-            scheduleListDismissal()
-        }
     }
 
     private func makeSettingsWindow() -> NSWindow {
@@ -269,8 +241,8 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
         let visible = screen?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
         let gap: CGFloat = 8
         panel.maxSize = NSSize(width: visible.width, height: visible.height)
-        let width = min(preferredListSize.width, visible.width - 32)
-        let height = min(preferredListSize.height, visible.height - 32)
+        let width = min(listWidth, visible.width - 32)
+        let height = min(listHeight, visible.height - 32)
         let rightSpace = visible.maxX - window.frame.maxX
         let leftSpace = window.frame.minX - visible.minX
         let aboveSpace = visible.maxY - window.frame.maxY
