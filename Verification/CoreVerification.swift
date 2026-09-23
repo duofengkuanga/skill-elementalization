@@ -205,9 +205,18 @@ struct CoreVerification {
             try store.setSelectedElement(.water)
             try store.setManualElement(.mountain, for: "retro")
             try store.setOnboardingCompleted(true)
+            try store.setChineseSummaries([
+                "retro": SkillChineseSummary(
+                    sourceDescription: "Conduct a retrospective on a coding session.",
+                    text: "回顾写代码的过程，找出下次能改进的地方。"
+                )
+            ])
+            try store.applyUsageScan(UsageScanResult(events: [], cursors: [:], issues: []), rebuild: true)
             let reloaded = LocalStateStore(fileURL: file)
             precondition(reloaded.state.selectedElement == .water)
             precondition(reloaded.state.skills["retro"]?.manualElement == .mountain)
+            precondition(reloaded.state.skills["retro"]?.chineseSummary?.text ==
+                         "回顾写代码的过程，找出下次能改进的地方。")
             precondition(reloaded.state.hasCompletedOnboarding)
         } catch {
             preconditionFailure("Local store verification failed: \(error)")

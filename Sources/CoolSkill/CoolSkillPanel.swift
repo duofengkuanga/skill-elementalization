@@ -257,7 +257,8 @@ struct SkillListPanelContent: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 2) {
                         ForEach(model.visibleSkills) { skill in
-                            SkillRow(skill: skill, accentColor: selectedElement.color(for: colorScheme)) {
+                            SkillRow(skill: skill, summaryText: model.summaryText(for: skill),
+                                     accentColor: selectedElement.color(for: colorScheme)) {
                                 _ = model.invoke(skill)
                             } moveAction: { element in
                                 model.moveSkill(skill.invocationName, to: element)
@@ -414,6 +415,7 @@ private struct ElementButton: View {
 
 private struct SkillRow: View {
     let skill: Skill
+    let summaryText: String
     let accentColor: Color
     let action: () -> Void
     let moveAction: (Element) -> Void
@@ -444,7 +446,7 @@ private struct SkillRow: View {
                                     .fixedSize()
                             }
                         }
-                        Text(skill.chineseSummary)
+                        Text(summaryText)
                             .font(.system(size: 9.5))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -462,7 +464,7 @@ private struct SkillRow: View {
             }
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityLabel("\(skill.name)，\(skill.summary)，最近调用：\(lastUsedText)")
+            .accessibilityLabel("\(skill.name)，\(summaryText)，最近调用：\(lastUsedText)")
             ImplicitInvocationIndicator(
                 isOn: skill.allowsImplicitInvocation,
                 tint: accentColor
@@ -622,10 +624,17 @@ struct SettingsSheet: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             }
+            if let message = model.summaryMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             HStack {
-                Button("更新 Skills") {
-                    model.refreshCatalog()
+                Button(model.isGeneratingSummaries ? "正在生成中文介绍…" : "更新 Skills") {
+                    model.refreshCatalog(generateChineseSummaries: true)
                 }
+                .disabled(model.isGeneratingSummaries)
+                .help("新增或描述变化的 Skill 会使用 Codex 生成中文介绍")
                 Button("刷新权限") {
                     model.refreshPermissions()
                 }

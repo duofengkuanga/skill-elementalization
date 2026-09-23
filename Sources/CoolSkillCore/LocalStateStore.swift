@@ -1,18 +1,31 @@
 import Foundation
 
+public struct SkillChineseSummary: Codable, Equatable, Sendable {
+    public let sourceDescription: String
+    public let text: String
+
+    public init(sourceDescription: String, text: String) {
+        self.sourceDescription = sourceDescription
+        self.text = text
+    }
+}
+
 public struct PersistedSkillState: Codable, Equatable, Sendable {
     public var manualElement: Element?
     public var usageCount: Int
     public var lastUsedAt: Date?
+    public var chineseSummary: SkillChineseSummary?
 
     public init(
         manualElement: Element? = nil,
         usageCount: Int = 0,
-        lastUsedAt: Date? = nil
+        lastUsedAt: Date? = nil,
+        chineseSummary: SkillChineseSummary? = nil
     ) {
         self.manualElement = manualElement
         self.usageCount = usageCount
         self.lastUsedAt = lastUsedAt
+        self.chineseSummary = chineseSummary
     }
 }
 
@@ -116,6 +129,15 @@ public final class LocalStateStore {
         try persist()
     }
 
+    public func setChineseSummaries(_ summaries: [String: SkillChineseSummary]) throws {
+        for (invocationName, summary) in summaries {
+            var skillState = state.skills[invocationName] ?? PersistedSkillState()
+            skillState.chineseSummary = summary
+            state.skills[invocationName] = skillState
+        }
+        try persist()
+    }
+
     public func setLaunchAtLogin(_ enabled: Bool) throws {
         state.launchAtLogin = enabled
         try persist()
@@ -149,7 +171,10 @@ public final class LocalStateStore {
     public func applyUsageScan(_ result: UsageScanResult, rebuild: Bool) throws {
         if rebuild {
             state.skills = state.skills.mapValues { saved in
-                PersistedSkillState(manualElement: saved.manualElement)
+                PersistedSkillState(
+                    manualElement: saved.manualElement,
+                    chineseSummary: saved.chineseSummary
+                )
             }
             state.usageCursors = [:]
             state.usageEventIDs = []

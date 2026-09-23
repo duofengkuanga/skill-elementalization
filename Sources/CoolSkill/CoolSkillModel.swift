@@ -18,6 +18,9 @@ final class CoolSkillModel: ObservableObject {
     @Published private(set) var permissions: PermissionSnapshot
     @Published private(set) var lifecycleMessage: String?
     @Published private(set) var isSettingsPresented = false
+    @Published private(set) var isGeneratingSummaries = false
+    @Published private(set) var summaryMessage: String?
+    @Published private(set) var chineseSummaries: [String: SkillChineseSummary]
 
     private let catalog: SkillCatalog
     private let store: LocalStateStore
@@ -25,6 +28,7 @@ final class CoolSkillModel: ObservableObject {
     private let inserter: SkillInserting
     private let loginItemManager: LoginItemManaging
     private let permissionController: PermissionControlling
+    private let summaryGenerator: SkillSummaryGenerating
     private var hasLoadedCatalog = false
     private var pendingUsageRebuild = false
 
@@ -35,7 +39,8 @@ final class CoolSkillModel: ObservableObject {
         usageReconstructor: UsageReconstructor = .defaultReconstructor(),
         inserter: SkillInserting = CodexAccessibilityInserter(),
         loginItemManager: LoginItemManaging = SystemLoginItemManager(),
-        permissionController: PermissionControlling = SystemPermissionController()
+        permissionController: PermissionControlling = SystemPermissionController(),
+        summaryGenerator: SkillSummaryGenerating = CodexSkillSummaryGenerator()
     ) {
         self.store = store
         state = LauncherState(
@@ -47,6 +52,8 @@ final class CoolSkillModel: ObservableObject {
         self.inserter = inserter
         self.loginItemManager = loginItemManager
         self.permissionController = permissionController
+        self.summaryGenerator = summaryGenerator
+        chineseSummaries = store.state.skills.compactMapValues(\.chineseSummary)
         launchAtLogin = store.state.launchAtLogin
         hasCompletedOnboarding = store.state.hasCompletedOnboarding
         permissions = permissionController.snapshot()
@@ -56,6 +63,19 @@ final class CoolSkillModel: ObservableObject {
     var selectedElement: Element? { state.selectedElement }
     var visibleSkills: [Skill] { state.visibleSkills }
     var totalSkillCount: Int { state.skills.count }
+
+    func summaryText(for skill: Skill) -> String {
+        let sourceSentence = skill.chineseSummary
+        if sourceSentence.unicodeScalars.contains(where: { (0x4E00...0x9FFF).contains($0.value) }) {
+            return sourceSentence
+        }
+        if let saved = chineseSummaries[skill.invocationName],
+           saved.sourceDescription == skill.summary,
+           saved.text.unicodeScalars.contains(where: { (0x4E00...0x9FFF).contains($0.value) }) {
+            return saved.text
+        }
+        return "待生成中文介绍"
+    }
 
     func skillCount(for element: Element) -> Int {
         state.skills.lazy.filter { $0.element == element }.count
@@ -150,6 +170,8 @@ final class CoolSkillModel: ObservableObject {
                 try loginItemManager.setEnabled(false)
             }
             try store.removeAll()
+            chineseSummaries = [:]
+            summaryMessage = nil
             launchAtLogin = false
             hasCompletedOnboarding = false
             state = LauncherState(
@@ -190,13 +212,57 @@ final class CoolSkillModel: ObservableObject {
         refreshCatalog()
     }
 
-    func refreshCatalog() {
+    func refreshCatalog(generateChineseSummaries: Bool = false) {
         isRefreshing = true
         let result = catalog.scan()
         state.send(.replaceSkills(Self.applying(store.state, to: result.skills)))
         catalogIssues = result.issues
         isRefreshing = false
         refreshUsage(rebuild: true)
+        if generateChineseSummaries {
+            generateMissingSummaries()
+        }
+    }
+
+    private func generateMissingSummaries() {
+        guard !isGeneratingSummaries else { return }
+        let pending = state.skills.filter { skill in
+            !skill.chineseSummary.unicodeScalars.contains(where: { (0x4E00...0x9FFF).contains($0.value) })
+                && (chineseSummaries[skill.invocationName]?.sourceDescription != skill.summary
+                    || chineseSummaries[skill.invocationName]?.text.unicodeScalars.contains(where: {
+                        (0x4E00...0x9FFF).contains($0.value)
+                    }) != true)
+        }
+        guard !pending.isEmpty else {
+            summaryMessage = "中文介绍已是最新"
+            return
+        }
+        isGeneratingSummaries = true
+        summaryMessage = nil
+        let generator = summaryGenerator
+        Task { [weak self] in
+            do {
+                let generated = try await Task.detached(priority: .utility) {
+                    try generator.generate(for: pending)
+                }.value
+                let summaries = Dictionary(uniqueKeysWithValues: pending.map { skill in
+                    (skill.invocationName, SkillChineseSummary(
+                        sourceDescription: skill.summary,
+                        text: generated[skill.invocationName] ?? ""
+                    ))
+                })
+                guard summaries.values.allSatisfy({ !$0.text.isEmpty }) else {
+                    throw CocoaError(.coderInvalidValue)
+                }
+                guard let self else { return }
+                try self.store.setChineseSummaries(summaries)
+                self.chineseSummaries = self.store.state.skills.compactMapValues(\.chineseSummary)
+                self.summaryMessage = "已生成 \(summaries.count) 条中文介绍"
+            } catch {
+                self?.summaryMessage = "中文介绍生成失败：\(error.localizedDescription)"
+            }
+            self?.isGeneratingSummaries = false
+        }
     }
 
     func refreshUsage(rebuild: Bool = false) {

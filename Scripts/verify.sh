@@ -38,6 +38,7 @@ swiftc \
   -lCoolSkillCore \
   "$repo_root/Sources/CoolSkill/CodexAccessibilityInserter.swift" \
   "$repo_root/Sources/CoolSkill/CoolSkillModel.swift" \
+  "$repo_root/Sources/CoolSkill/SkillSummaryGenerator.swift" \
   "$repo_root/Sources/CoolSkill/SystemLifecycle.swift" \
   "$repo_root/Verification/AppModelVerification.swift" \
   -Xlinker -rpath \

@@ -16,6 +16,7 @@ swiftc \
   -lCoolSkillCore \
   "$repo_root/Sources/CoolSkill/CodexAccessibilityInserter.swift" \
   "$repo_root/Sources/CoolSkill/CoolSkillModel.swift" \
+  "$repo_root/Sources/CoolSkill/SkillSummaryGenerator.swift" \
   "$repo_root/Sources/CoolSkill/CoolSkillPanel.swift" \
   "$repo_root/Sources/CoolSkill/ElementVisuals.swift" \
   "$repo_root/Sources/CoolSkill/SystemLifecycle.swift" \

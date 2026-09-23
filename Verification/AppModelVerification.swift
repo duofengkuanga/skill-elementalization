@@ -32,6 +32,16 @@ private struct FakePermissionController: PermissionControlling {
     func requestAccessibility() {}
 }
 
+private struct FakeSummaryGenerator: SkillSummaryGenerating {
+    func generate(for skills: [Skill]) throws -> [String: String] {
+        Dictionary(uniqueKeysWithValues: skills.map { skill in
+            (skill.invocationName, skill.summary.contains("updated")
+                ? "查看更新后的工作内容。"
+                : "回顾写代码的过程，找出下次能改进的地方。")
+        })
+    }
+}
+
 @main
 struct AppModelVerification {
     @MainActor
@@ -89,6 +99,7 @@ struct AppModelVerification {
         verifyCodexComposerAcquisitionWakesBeforeRetry()
         verifyCatalogRefreshRebuildsHistoricalUsage()
         verifyCatalogRefreshUpdatesImplicitInvocationPolicy()
+        verifyChineseSummariesForNewAndChangedSkills()
 
         try? FileManager.default.removeItem(at: root)
         print("App model verification passed")
@@ -250,6 +261,60 @@ struct AppModelVerification {
         } catch {
             preconditionFailure("Implicit invocation policy refresh verification failed: \(error)")
         }
+    }
+
+    @MainActor
+    private static func verifyChineseSummariesForNewAndChangedSkills() {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("coolskill-chinese-summary-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let skillURL = root.appendingPathComponent("skills/retro/SKILL.md")
+        do {
+            try FileManager.default.createDirectory(
+                at: skillURL.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            try "---\nname: retro\ndescription: Conduct a retrospective on a coding session.\n---\n"
+                .write(to: skillURL, atomically: true, encoding: .utf8)
+            let store = LocalStateStore(fileURL: root.appendingPathComponent("state.json"))
+            let model = CoolSkillModel(
+                catalog: SkillCatalog(roots: [
+                    SkillSourceRoot(url: root.appendingPathComponent("skills"), kind: .sharedGlobal, precedence: 1)
+                ]),
+                store: store,
+                usageReconstructor: UsageReconstructor(roots: []),
+                inserter: FakeInserter(result: .failure(FakeInsertionError.rejected)),
+                loginItemManager: FakeLoginItemManager(),
+                permissionController: FakePermissionController(value: PermissionSnapshot(accessibilityGranted: false)),
+                summaryGenerator: FakeSummaryGenerator()
+            )
+            model.refreshCatalog()
+            precondition(model.summaryText(for: model.state.skills[0]) == "待生成中文介绍")
+
+            model.refreshCatalog(generateChineseSummaries: true)
+            waitForSummaryGeneration(model)
+            waitForUsageRefresh(model)
+            precondition(model.summaryText(for: model.state.skills[0]) == "回顾写代码的过程，找出下次能改进的地方。")
+            precondition(store.state.skills["retro"]?.chineseSummary?.text == "回顾写代码的过程，找出下次能改进的地方。")
+
+            try "---\nname: retro\ndescription: Review updated work.\n---\n"
+                .write(to: skillURL, atomically: true, encoding: .utf8)
+            model.refreshCatalog()
+            precondition(model.summaryText(for: model.state.skills[0]) == "待生成中文介绍")
+            model.refreshCatalog(generateChineseSummaries: true)
+            waitForSummaryGeneration(model)
+            precondition(model.summaryText(for: model.state.skills[0]) == "查看更新后的工作内容。")
+        } catch {
+            preconditionFailure("Chinese skill summary verification failed: \(error)")
+        }
+    }
+
+    @MainActor
+    private static func waitForSummaryGeneration(_ model: CoolSkillModel) {
+        let deadline = Date().addingTimeInterval(2)
+        while model.isGeneratingSummaries && Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+        }
+        precondition(!model.isGeneratingSummaries, "Chinese summary generation did not finish")
     }
 
     @MainActor

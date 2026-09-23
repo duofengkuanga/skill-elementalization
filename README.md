@@ -10,7 +10,7 @@ CoolSkill 是一个 Apple Silicon/macOS 15+ 原生桌面 App。它只读取 `~/.
 - App 运行期间每 30 秒自动刷新使用次数和最近调用时间；手动“更新 Skills”会重扫目录并全量重建统计；
 - Skill 列表显示累计次数、精确到秒的最近调用时间和只读“允许自动调用”开关，并按最近调用时间降序排列；
 - 启动即显示固定尺寸的技能库主窗口；初始不展开任何元素，悬停左侧图标后显示对应列表；
-- 技能说明直接读取对应 Skill 的 description，并压缩为列表中的一句话；使用次数紧跟技能名称；
+- 技能列表显示一句中文介绍；手动“更新 Skills”时，Codex 按 eli5 Skill 为新增或描述变化的技能生成介绍并在本机缓存；使用次数紧跟技能名称；
 - 左栏底部保留 Pin，作为窗口置顶开关；手动更新位于设置页；
 - 设置入口位于左栏底部：可控制登录启动、更新 Skills，并查看或请求辅助功能权限；
 - 标准 macOS App 生命周期和 Dock 图标；不再创建或依赖菜单栏状态项；
@@ -61,6 +61,6 @@ GitHub Release 提供 `CoolSkill-<version>-macos-arm64.zip`。解压后把 `Cool
 
 产品规格与 tracer-bullet tickets 位于 `.scratch/coolskill/`。
 
-## TypeSafe / Jev 分工
+## 中文介绍
 
-Skill 的 `description` 是摘要的唯一来源，CoolSkill 只负责清洗和截断为一句话。涉及语义判断时，优先使用 TypeSafe 的 Jev：Jev 适合做风火水山分类、候选 Skill 筛选、意图路由和简单条件判断；Codex 负责复杂推理、跨文件分析、代码修改与最终决策。当前 App 的离线分类仍由本地规则完成，未伪造 Jev API 或凭据；接入 TypeSafe 时应将 Jev 放在这些边界内，并保留概率与低置信度结果供代码升级处理。
+首次使用或手动加入新 Skill 后，在设置中点击“更新 Skills”。CoolSkill 读取各自的 `description`，通过本机 Codex CLI 按 `~/.agents/skills/eli5/SKILL.md` 的说明批量生成一句中文介绍，结果保存在本机状态文件中。描述未变化时复用缓存；生成失败时列表显示“待生成中文介绍”，设置页显示失败原因。此功能需要本机已登录 Codex CLI，并安装 eli5 Skill。
