@@ -1,4 +1,4 @@
-name: Release CoolSkill
+name: Release kcoisga
 
 on:
   workflow_dispatch:
@@ -23,8 +23,8 @@ jobs:
       - name: Package release archive
         run: |
           tag_name="${GITHUB_REF_NAME}"
-          archive="CoolSkill-${tag_name#v}-macos-arm64.zip"
-          ditto -c -k --sequesterRsrc --keepParent .build/CoolSkill.app ".build/${archive}"
+          archive="kcoisga-${tag_name#v}-macos-arm64.zip"
+          ditto -c -k --sequesterRsrc --keepParent .build/kcoisga.app ".build/${archive}"
           shasum -a 256 ".build/${archive}" > ".build/${archive}.sha256"
 
       - name: Create GitHub Release
@@ -32,9 +32,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag_name="${GITHUB_REF_NAME}"
-          archive="CoolSkill-${tag_name#v}-macos-arm64.zip"
+          archive="kcoisga-${tag_name#v}-macos-arm64.zip"
           gh release create "$tag_name" \
             ".build/${archive}" \
             ".build/${archive}.sha256" \
-            --title "CoolSkill ${tag_name#v}" \
-            --notes "免费未公证构建。首次打开如被 macOS 拦截，请在“隐私与安全性”选择仍要打开；每次更新后可能需要重新授予辅助功能和输入监听权限。"
+            --title "kcoisga ${tag_name#v}" \
+            --notes "免费未公证构建。从 CoolSkill 0.6.x 升级请先退出旧版，再手动下载并打开 kcoisga.app；原有统计和分类会保留。首次打开如被 macOS 拦截，请在“隐私与安全性”选择仍要打开；更新后可能需要重新授予辅助功能权限。"

@@ -49,8 +49,10 @@ enum SelfUpdateInstaller {
         try unzip.run()
         unzip.waitUntilExit()
         guard unzip.terminationStatus == 0 else { throw CocoaError(.fileReadUnknown) }
-        let replacement = staging.appendingPathComponent("CoolSkill.app")
-        guard FileManager.default.fileExists(atPath: replacement.path) else { throw CocoaError(.fileNoSuchFile) }
+        let replacement = ["kcoisga.app", "CoolSkill.app"]
+            .map { staging.appendingPathComponent($0) }
+            .first { FileManager.default.fileExists(atPath: $0.path) }
+        guard let replacement else { throw CocoaError(.fileNoSuchFile) }
 
         let destination = Bundle.main.bundleURL
         let script = staging.appendingPathComponent("install-update.sh")
@@ -80,7 +82,7 @@ struct GitHubUpdateChecker {
     func check(currentVersion: String) async -> UpdateCheckResult {
         do {
             var request = URLRequest(url: latestReleaseURL)
-            request.setValue("CoolSkill", forHTTPHeaderField: "User-Agent")
+            request.setValue("kcoisga", forHTTPHeaderField: "User-Agent")
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let response = response as? HTTPURLResponse, response.statusCode == 200 else {
                 return .failed

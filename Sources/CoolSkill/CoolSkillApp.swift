@@ -36,20 +36,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func installApplicationMenu() {
         let mainMenu = NSMenu()
-        let applicationItem = NSMenuItem(title: "CoolSkill", action: nil, keyEquivalent: "")
-        let applicationMenu = NSMenu(title: "CoolSkill")
-        applicationMenu.addItem(withTitle: "关于 CoolSkill", action: #selector(showAbout), keyEquivalent: "")
+        let applicationItem = NSMenuItem(title: "kcoisga", action: nil, keyEquivalent: "")
+        let applicationMenu = NSMenu(title: "kcoisga")
+        applicationMenu.addItem(withTitle: "关于 kcoisga", action: #selector(showAbout), keyEquivalent: "")
         applicationMenu.addItem(.separator())
         applicationMenu.addItem(withTitle: "设置…", action: #selector(showSettings), keyEquivalent: ",")
         applicationMenu.addItem(withTitle: "检查更新…", action: #selector(checkForUpdates), keyEquivalent: "")
         applicationMenu.addItem(withTitle: "更新 Skills", action: #selector(refreshSkills), keyEquivalent: "")
         applicationMenu.addItem(.separator())
-        applicationMenu.addItem(withTitle: "退出 CoolSkill", action: #selector(quit), keyEquivalent: "q")
+        applicationMenu.addItem(withTitle: "退出 kcoisga", action: #selector(quit), keyEquivalent: "q")
         for item in applicationMenu.items where !item.isSeparatorItem {
             item.target = self
         }
         applicationItem.submenu = applicationMenu
         mainMenu.addItem(applicationItem)
+        let windowItem = NSMenuItem(title: "窗口", action: nil, keyEquivalent: "")
+        let windowMenu = NSMenu(title: "窗口")
+        windowMenu.addItem(withTitle: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        windowMenu.addItem(withTitle: "最小化", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "缩放", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowItem.submenu = windowMenu
+        mainMenu.addItem(windowItem)
+        NSApp.windowsMenu = windowMenu
         NSApp.mainMenu = mainMenu
     }
 
@@ -73,11 +81,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.messageText = "检查更新"
             switch result {
             case .upToDate:
-                alert.informativeText = "CoolSkill 已是最新版本（\(currentVersion)）。"
+                alert.informativeText = "kcoisga 已是最新版本（\(currentVersion)）。"
                 alert.addButton(withTitle: "好")
                 alert.runModal()
             case let .available(release):
-                alert.informativeText = "发现新版本 \(release.tagName)。下载后替换“应用程序”文件夹中的 CoolSkill 即可完成更新。"
+                alert.informativeText = "发现新版本 \(release.tagName)。下载后替换“应用程序”文件夹中的 kcoisga 即可完成更新。"
                 alert.addButton(withTitle: "下载并更新")
                 alert.addButton(withTitle: "稍后")
                 if alert.runModal() == .alertFirstButtonReturn {

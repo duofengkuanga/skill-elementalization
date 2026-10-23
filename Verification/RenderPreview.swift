@@ -52,26 +52,25 @@ struct RenderPreview {
         )
         if mode == "empty" {
             model.select(.mountain)
-        } else if mode != "unselected" {
+        } else if mode == "unselected" {
+            model.clearSelection()
+        } else {
             model.select(.wind)
         }
         let colorScheme: ColorScheme = mode.contains("light") ? .light : .dark
         let previewSize = rendersSkillList
-            ? NSSize(width: mode.contains("wide") ? 520 : 300, height: 360)
-            : NSSize(width: 840, height: 580)
+            ? NSSize(width: mode.contains("wide") ? 790 : 570, height: 620)
+            : NSSize(width: mode.contains("stress") ? 780 : 1000, height: mode.contains("stress") ? 520 : 680)
         let rootView: AnyView
         if rendersSkillList {
             rootView = AnyView(
-                SkillListPanelContent(model: model, onHoverChanged: { _ in })
+                SkillListPanelContent(model: model)
                     .frame(width: previewSize.width, height: previewSize.height)
                     .environment(\.colorScheme, colorScheme)
             )
         } else {
             rootView = AnyView(
-                CoolSkillPanel(
-                    model: model,
-                    reduceMotionOverride: mode == "reduce-motion" ? true : nil
-                )
+                CoolSkillPanel(model: model)
                 .frame(width: previewSize.width, height: previewSize.height)
                 .environment(\.colorScheme, colorScheme)
             )

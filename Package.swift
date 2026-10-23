@@ -3,13 +3,13 @@
 import PackageDescription
 
 let package = Package(
-    name: "CoolSkill",
+    name: "kcoisga",
     platforms: [
         .macOS("15.0")
     ],
     products: [
         .library(name: "CoolSkillCore", targets: ["CoolSkillCore"]),
-        .executable(name: "CoolSkill", targets: ["CoolSkill"])
+        .executable(name: "kcoisga", targets: ["CoolSkill"])
     ],
     targets: [
         .target(name: "CoolSkillCore"),

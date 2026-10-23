@@ -15,7 +15,7 @@ enum CodexInsertionError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .permissionRequired:
-            return "请先授予 CoolSkill 辅助功能权限"
+            return "请先授予 kcoisga 辅助功能权限"
         case .codexNotRunning:
             return "请先打开 Codex"
         case .composerNotFocused:

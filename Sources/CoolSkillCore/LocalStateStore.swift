@@ -104,7 +104,7 @@ public final class LocalStateStore {
                 let data = try Data(contentsOf: fileURL)
                 state = try decoder.decode(PersistedAppState.self, from: data)
             } catch {
-                loadMessage = "CoolSkill 本地状态损坏，已使用安全默认值：\(error.localizedDescription)"
+                loadMessage = "kcoisga 本地状态损坏，已使用安全默认值：\(error.localizedDescription)"
             }
         }
     }

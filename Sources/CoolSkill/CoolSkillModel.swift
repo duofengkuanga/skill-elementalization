@@ -44,7 +44,7 @@ final class CoolSkillModel: ObservableObject {
     ) {
         self.store = store
         state = LauncherState(
-            selectedElement: nil,
+            selectedElement: .wind,
             skills: Self.applying(store.state, to: skills)
         )
         self.catalog = catalog
@@ -93,7 +93,7 @@ final class CoolSkillModel: ObservableObject {
     }
 
     func prepareForPresentation() {
-        state.send(.clearElement)
+        if selectedElement == nil { state.send(.selectElement(.wind)) }
         keyboardSelectionIndex = nil
         dismissInsertionMessage()
         loadInitialCatalogIfNeeded()

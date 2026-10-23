@@ -3,20 +3,11 @@ import CoolSkillCore
 import SwiftUI
 
 @MainActor
-final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
+final class SkillLibraryWindowController: NSObject {
     private let model: CoolSkillModel
     private var window: NSWindow!
-    private var listPanel: NSPanel?
-    private var settingsWindow: NSWindow?
     private var keyMonitor: Any?
-    private var dismissListTask: Task<Void, Never>?
-    private var isSnapping = false
-    private let collapsedWidth: CGFloat = 40
-    private let collapsedHeight: CGFloat = 260
-    private let listWidth: CGFloat = 300
-    private let listHeight: CGFloat = 360
 
-    private(set) var isPinned = false
     var isVisible: Bool { window.isVisible }
     var title: String { window.title }
 
@@ -33,79 +24,48 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
 
     func showAndActivate() {
         model.prepareForPresentation()
-        hideListImmediately()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func setPinned(_ pinned: Bool) {
-        guard pinned != isPinned else { return }
-        isPinned = pinned
-        model.setPinned(pinned)
-        window.level = pinned ? .floating : .normal
-        window.collectionBehavior = pinned
-            ? [.canJoinAllSpaces, .fullScreenAuxiliary]
-            : [.moveToActiveSpace, .fullScreenAuxiliary]
-        listPanel?.level = window.level
-        listPanel?.collectionBehavior = pinned
-            ? [.canJoinAllSpaces, .fullScreenAuxiliary]
-            : [.moveToActiveSpace, .fullScreenAuxiliary]
-    }
-
-    func togglePinned() {
-        setPinned(!isPinned)
-    }
-
     func openSettings() {
-        let settings = settingsWindow ?? makeSettingsWindow()
-        settingsWindow = settings
-        settings.makeKeyAndOrderFront(nil)
+        window.makeKeyAndOrderFront(nil)
+        model.openSettings()
         NSApp.activate(ignoringOtherApps: true)
     }
 
     private func makeWindow() -> NSWindow {
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: collapsedWidth, height: collapsedHeight),
-            styleMask: [.borderless],
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 680),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        newWindow.delegate = self
-        newWindow.title = "CoolSkill"
-        newWindow.titleVisibility = .hidden
+        newWindow.title = "kcoisga"
         newWindow.titlebarAppearsTransparent = true
-        newWindow.isOpaque = false
-        newWindow.backgroundColor = .clear
         newWindow.isReleasedWhenClosed = false
-        newWindow.minSize = NSSize(width: collapsedWidth, height: collapsedHeight)
-        newWindow.maxSize = NSSize(width: collapsedWidth, height: collapsedHeight)
-        newWindow.isMovableByWindowBackground = true
-        newWindow.contentView = NSHostingView(
-            rootView: CoolSkillPanel(
-                model: model,
-                onTogglePin: { [weak self] in
-                    self?.setPinned(!(self?.isPinned ?? false))
-                },
-                onPresentationChange: { [weak self] isShowing in
-                    self?.setListPresentation(isShowing)
-                }
-            )
-        )
-        newWindow.contentView?.wantsLayer = true
-        newWindow.contentView?.layer?.cornerRadius = 20
-        newWindow.contentView?.layer?.masksToBounds = true
+        newWindow.contentMinSize = NSSize(width: 780, height: 520)
+        newWindow.contentView = NSHostingView(rootView: CoolSkillPanel(model: model))
+        newWindow.setFrameAutosaveName("kcoisga-library")
         newWindow.center()
         return newWindow
     }
 
     private func installKeyboardMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.window.isKeyWindow else { return event }
-            switch event.keyCode {
-            case 18, 19, 20, 21:
-                self.model.select(Element.allCases[Int(event.keyCode - 18)])
-                self.showList()
+            guard let self, self.window.isKeyWindow,
+                  !self.model.isSettingsPresented,
+                  self.model.insertionMessage == nil else { return event }
+            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                .subtracting([.numericPad, .function, .capsLock])
+            if modifiers == .command,
+               let number = Int(event.charactersIgnoringModifiers ?? ""),
+               (1...4).contains(number) {
+                self.model.select(Element.allCases[number - 1])
                 return nil
+            }
+            guard modifiers.isEmpty else { return event }
+            switch event.keyCode {
             case 125:
                 self.model.moveKeyboardSelection(by: 1)
                 return nil
@@ -113,172 +73,10 @@ final class SkillLibraryWindowController: NSObject, NSWindowDelegate {
                 self.model.moveKeyboardSelection(by: -1)
                 return nil
             case 36:
-                _ = self.model.invokeKeyboardSelection()
-                return nil
-            case 53:
-                self.window.performClose(nil)
-                return nil
+                return self.model.invokeKeyboardSelection() ? nil : event
             default:
                 return event
             }
         }
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        guard notification.object as? NSWindow === window else { return }
-        setPinned(false)
-        hideListImmediately()
-    }
-
-    func windowDidMove(_ notification: Notification) {
-        guard !isSnapping,
-              let movedWindow = notification.object as? NSWindow,
-              movedWindow === window,
-              let visible = movedWindow.screen?.visibleFrame else { return }
-        let threshold: CGFloat = 18
-        let candidates: [(CGFloat, NSPoint)] = [
-            (abs(movedWindow.frame.minX - visible.minX), NSPoint(x: visible.minX, y: movedWindow.frame.minY)),
-            (abs(movedWindow.frame.maxX - visible.maxX), NSPoint(x: visible.maxX - movedWindow.frame.width, y: movedWindow.frame.minY)),
-            (abs(movedWindow.frame.minY - visible.minY), NSPoint(x: movedWindow.frame.minX, y: visible.minY)),
-            (abs(movedWindow.frame.maxY - visible.maxY), NSPoint(x: movedWindow.frame.minX, y: visible.maxY - movedWindow.frame.height))
-        ]
-        guard let nearest = candidates.min(by: { $0.0 < $1.0 }), nearest.0 <= threshold else { return }
-        isSnapping = true
-        movedWindow.setFrameOrigin(nearest.1)
-        isSnapping = false
-    }
-
-    private func setListPresentation(_ isShowing: Bool) {
-        if isShowing {
-            dismissListTask?.cancel()
-            showList()
-        } else {
-            scheduleListDismissal()
-        }
-    }
-
-    private func showList() {
-        dismissListTask?.cancel()
-        guard model.selectedElement != nil else { return }
-        let panel = listPanel ?? makeListPanel()
-        listPanel = panel
-        if !panel.isVisible { place(panel) }
-        panel.orderFront(nil)
-    }
-
-    private func scheduleListDismissal() {
-        dismissListTask?.cancel()
-        dismissListTask = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 600_000_000)
-                guard !Task.isCancelled, let self else { return }
-                let pointer = NSEvent.mouseLocation
-                if self.listPanel?.frame.insetBy(dx: -20, dy: -20).contains(pointer) == true
-                    || self.window.frame.insetBy(dx: -12, dy: -12).contains(pointer) {
-                    continue
-                }
-                self.hideListImmediately()
-                self.model.clearSelection()
-                return
-            }
-        }
-    }
-
-    private func hideListImmediately() {
-        dismissListTask?.cancel()
-        listPanel?.orderOut(nil)
-    }
-
-    private func makeListPanel() -> NSPanel {
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: listWidth, height: listHeight),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        panel.isOpaque = false
-        panel.delegate = self
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
-        panel.level = window.level
-        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-        let contentView = NSHostingView(
-            rootView: SkillListPanelContent(model: model) { [weak self] hovering in
-                self?.setListPresentation(hovering)
-            }
-            .frame(minWidth: 260, minHeight: 180)
-        )
-        contentView.sizingOptions = [.minSize]
-        panel.contentView = contentView
-        panel.contentView?.wantsLayer = true
-        panel.contentView?.layer?.cornerRadius = 20
-        panel.contentView?.layer?.masksToBounds = true
-        return panel
-    }
-
-    private func makeSettingsWindow() -> NSWindow {
-        let settings = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 390, height: 330),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        settings.title = "设置"
-        settings.isReleasedWhenClosed = false
-        settings.contentView = NSHostingView(
-            rootView: SettingsSheet(model: model) { [weak settings] in
-                settings?.close()
-            }
-        )
-        settings.center()
-        return settings
-    }
-
-    private func place(_ panel: NSPanel) {
-        let screen = window.screen ?? NSScreen.main
-        let visible = screen?.visibleFrame ?? NSScreen.screens.first?.visibleFrame ?? .zero
-        let gap: CGFloat = 8
-        panel.maxSize = NSSize(width: visible.width, height: visible.height)
-        let width = min(listWidth, visible.width - 32)
-        let height = min(listHeight, visible.height - 32)
-        let rightSpace = visible.maxX - window.frame.maxX
-        let leftSpace = window.frame.minX - visible.minX
-        let aboveSpace = visible.maxY - window.frame.maxY
-        let belowSpace = window.frame.minY - visible.minY
-
-        let x: CGFloat
-        let y: CGFloat
-        let size: NSSize
-        if rightSpace >= width + gap {
-            size = NSSize(width: width, height: height)
-            x = window.frame.maxX + gap
-            y = min(max(window.frame.midY - height / 2, visible.minY), visible.maxY - height)
-        } else if leftSpace >= width + gap {
-            size = NSSize(width: width, height: height)
-            x = window.frame.minX - width - gap
-            y = min(max(window.frame.midY - height / 2, visible.minY), visible.maxY - height)
-        } else if belowSpace >= height + gap {
-            size = NSSize(width: width, height: height)
-            x = min(max(window.frame.midX - width / 2, visible.minX), visible.maxX - width)
-            y = window.frame.minY - height - gap
-        } else if aboveSpace >= height + gap {
-            size = NSSize(width: width, height: height)
-            x = min(max(window.frame.midX - width / 2, visible.minX), visible.maxX - width)
-            y = window.frame.maxY + gap
-        } else if max(rightSpace, leftSpace) >= max(aboveSpace, belowSpace) {
-            let availableWidth = max(220, max(rightSpace, leftSpace) - gap)
-            size = NSSize(width: min(width, availableWidth), height: height)
-            x = rightSpace >= leftSpace ? window.frame.maxX + gap : window.frame.minX - size.width - gap
-            y = min(max(window.frame.midY - height / 2, visible.minY), visible.maxY - height)
-        } else {
-            let availableHeight = max(180, max(aboveSpace, belowSpace) - gap)
-            size = NSSize(width: width, height: min(height, availableHeight))
-            x = min(max(window.frame.midX - width / 2, visible.minX), visible.maxX - width)
-            y = aboveSpace >= belowSpace ? window.frame.maxY + gap : window.frame.minY - size.height - gap
-        }
-        panel.setContentSize(size)
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 }

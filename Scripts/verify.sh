@@ -4,11 +4,12 @@ set -euo pipefail
 
 repo_root=${0:A:h:h}
 manual_build="$repo_root/.build/manual"
+swift_target="arm64-apple-macosx15.0"
 
 mkdir -p "$manual_build"
 
-swiftc -typecheck "$repo_root"/Sources/CoolSkillCore/*.swift
-swiftc \
+swiftc -target "$swift_target" -typecheck "$repo_root"/Sources/CoolSkillCore/*.swift
+swiftc -target "$swift_target" \
   -emit-library \
   -emit-module \
   -parse-as-library \
@@ -16,23 +17,23 @@ swiftc \
   "$repo_root"/Sources/CoolSkillCore/*.swift \
   -emit-module-path "$manual_build/CoolSkillCore.swiftmodule" \
   -o "$manual_build/libCoolSkillCore.dylib"
-swiftc \
+swiftc -target "$swift_target" \
   -typecheck \
   -I "$manual_build" \
   "$repo_root"/Sources/CoolSkill/*.swift
-swiftc \
+swiftc -target "$swift_target" \
   -I "$manual_build" \
   -L "$manual_build" \
   -lCoolSkillCore \
   "$repo_root"/Sources/CoolSkill/*.swift \
   -Xlinker -rpath \
   -Xlinker @executable_path \
-  -o "$manual_build/CoolSkill"
-swiftc \
+  -o "$manual_build/kcoisga"
+swiftc -target "$swift_target" \
   "$repo_root"/Sources/CoolSkillCore/*.swift \
   "$repo_root"/Verification/CoreVerification.swift \
   -o "$manual_build/core-verification"
-swiftc \
+swiftc -target "$swift_target" \
   -I "$manual_build" \
   -L "$manual_build" \
   -lCoolSkillCore \

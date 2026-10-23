@@ -1,6 +1,6 @@
-# CoolSkill Elements
+# kcoisga Elements
 
-CoolSkill 用四种元素表达 Skill 在 Agent 系统中的唯一主职责，而不是它使用的工具或内部步骤。
+kcoisga 用四种元素表达 Skill 在 Agent 系统中的唯一主职责，而不是它使用的工具或内部步骤。
 
 ## Language
 

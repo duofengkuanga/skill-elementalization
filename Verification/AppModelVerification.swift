@@ -70,8 +70,8 @@ struct AppModelVerification {
             )
         )
 
-        precondition(model.selectedElement == nil)
-        precondition(model.visibleSkills.isEmpty)
+        precondition(model.selectedElement == .wind)
+        precondition(model.visibleSkills.map(\.invocationName) == ["browser-control"])
         model.select(.water)
         precondition(!model.isKeyboardSelected(FixtureSkills.all[2]))
         model.moveSkill("deep-research", to: .mountain)
@@ -93,7 +93,7 @@ struct AppModelVerification {
         precondition(model.insertionMessage == nil)
 
         model.prepareForPresentation()
-        precondition(model.selectedElement == nil)
+        precondition(model.selectedElement == .water, "Reopening must preserve the current category")
         precondition(model.state.skills.isEmpty, "An empty agents directory must clear the catalog")
 
         verifyCodexComposerAcquisitionWakesBeforeRetry()

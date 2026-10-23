@@ -5,43 +5,20 @@ import UniformTypeIdentifiers
 
 struct CoolSkillPanel: View {
     @ObservedObject var model: CoolSkillModel
-    let onSuccessfulInsertion: () -> Void
-    let onTogglePin: () -> Void
-    let onPresentationChange: (Bool) -> Void
-    let showsPinControl: Bool
-    let reduceMotionOverride: Bool?
     @Environment(\.colorScheme) private var colorScheme
-    @State private var listPresentation = SkillListPresentationState()
     @State private var elementOrder = Element.allCases
     @State private var rightDragOriginOrder: [Element]?
 
-    init(
-        model: CoolSkillModel,
-        onSuccessfulInsertion: @escaping () -> Void = {},
-        onTogglePin: @escaping () -> Void = {},
-        onPresentationChange: @escaping (Bool) -> Void = { _ in },
-        showsPinControl: Bool = true,
-        reduceMotionOverride: Bool? = nil
-    ) {
-        self.model = model
-        self.onSuccessfulInsertion = onSuccessfulInsertion
-        self.onTogglePin = onTogglePin
-        self.onPresentationChange = onPresentationChange
-        self.showsPinControl = showsPinControl
-        self.reduceMotionOverride = reduceMotionOverride
-    }
-
     var body: some View {
-        GeometryReader { proxy in
-            elementRail(size: proxy.size)
+        HStack(spacing: 0) {
+            sidebar
+                .frame(width: 210)
+            Divider()
+            SkillListPanelContent(model: model)
         }
-        .background {
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                glassTint
-            }
-        }
-        .overlay(Color.white.opacity(colorScheme == .dark ? 0.02 : 0.08).allowsHitTesting(false))
+        .background(AppTheme.canvas(for: colorScheme))
+        .foregroundStyle(AppTheme.ink(for: colorScheme))
+        .tint(AppTheme.accent(for: colorScheme))
         .sheet(
             isPresented: Binding(
                 get: { model.isSettingsPresented },
@@ -57,143 +34,114 @@ struct CoolSkillPanel: View {
                 set: { if !$0 { model.dismissInsertionMessage() } }
             )
         ) {
-            Button("好", role: .cancel) {
-                model.dismissInsertionMessage()
-            }
+            Button("好", role: .cancel) { model.dismissInsertionMessage() }
         } message: {
             Text(model.insertionMessage ?? "")
         }
         .task {
             model.loadInitialCatalogIfNeeded()
-            model.refreshUsage()
-            synchronizePresentation(with: model.selectedElement)
         }
         .task {
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                do {
+                    try await Task.sleep(nanoseconds: 30_000_000_000)
+                } catch { return }
                 guard !Task.isCancelled else { return }
                 model.refreshUsage()
             }
         }
-        .onChange(of: model.selectedElement) { selectedElement in
-            synchronizePresentation(with: selectedElement)
-        }
     }
 
-    private func elementRail(size: CGSize) -> some View {
-        let inset = min(max(8, size.width * 0.16), 22)
-        let usableHeight = max(1, size.height - inset * 2)
-        let buttonSide = min(max(20, min(size.width * 0.62, usableHeight / 5.6)), 76)
-        let glyphSide = buttonSide * 0.66
-        let pinHeight = buttonSide * 0.78
-        let gap = max(5, min(26, (usableHeight - pinHeight - buttonSide * 4) / 4))
-        return VStack(spacing: gap) {
-            Button(action: onTogglePin) {
-                Image(systemName: model.isPinned ? "pin.fill" : "pin")
-                    .font(.system(size: max(12, glyphSide * 0.54), weight: .semibold))
-                    .frame(width: buttonSide, height: buttonSide * 0.78)
-                    .foregroundStyle(model.isPinned ? Color.accentColor : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help(model.isPinned ? "取消窗口置顶" : "窗口置顶")
-            ForEach(elementOrder) { element in
-                ElementButton(
-                    element: element,
-                    isSelected: model.selectedElement == element,
-                    color: element.color(for: colorScheme),
-                    side: buttonSide,
-                    glyphSide: glyphSide,
-                    action: { revealList(for: element) }
-                )
-                .onHover { hovering in
-                    if hovering {
-                        revealList(for: element)
-                    }
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                BrandMark()
+                    .frame(width: 32, height: 32)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("kcoisga")
+                        .font(.system(size: 22, weight: .bold))
+                    Text("你的 Skill 工作台")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                 }
-                .onDrag { NSItemProvider(object: NSString(string: element.rawValue)) }
-                .onDrop(of: [UTType.plainText], isTargeted: nil) { providers in
-                    guard let provider = providers.first else { return false }
-                    provider.loadObject(ofClass: NSString.self) { object, _ in
-                        guard let value = object as? String else { return }
-                        Task { @MainActor in
-                            if let draggedElement = Element(rawValue: value) {
-                                move(draggedElement, before: element)
-                            } else {
-                                model.moveSkill(value, to: element)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 26)
+            .padding(.bottom, 32)
+
+            Text("技能库")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 22)
+                .padding(.bottom, 10)
+
+            VStack(spacing: 4) {
+                ForEach(elementOrder) { element in
+                    ElementButton(
+                        element: element,
+                        isSelected: model.selectedElement == element,
+                        color: model.selectedElement == element
+                            ? AppTheme.accent(for: colorScheme)
+                            : element.color(for: colorScheme),
+                        count: model.skillCount(for: element),
+                        action: { model.select(element) }
+                    )
+                    .onDrag { NSItemProvider(object: NSString(string: element.rawValue)) }
+                    .onDrop(of: [UTType.plainText], isTargeted: nil) { providers in
+                        guard let provider = providers.first else { return false }
+                        provider.loadObject(ofClass: NSString.self) { object, _ in
+                            guard let value = object as? String else { return }
+                            Task { @MainActor in
+                                if let draggedElement = Element(rawValue: value) {
+                                    move(draggedElement, before: element)
+                                } else {
+                                    model.moveSkill(value, to: element)
+                                }
                             }
                         }
+                        return true
                     }
-                    return true
-                }
-                .background {
-                    RightMouseDragReader {
-                        rightDragOriginOrder = elementOrder
-                    } onChanged: { verticalOffset in
-                        reorderElement(
-                            element,
-                            verticalOffset: verticalOffset,
-                            itemStride: buttonSide + gap
-                        )
-                    } onEnded: {
-                        rightDragOriginOrder = nil
+                    .background {
+                        RightMouseDragReader {
+                            rightDragOriginOrder = elementOrder
+                        } onChanged: { verticalOffset in
+                            reorderElement(element, verticalOffset: verticalOffset, itemStride: 44)
+                        } onEnded: {
+                            rightDragOriginOrder = nil
+                        }
                     }
                 }
             }
-        }
-        .padding(inset)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background {
-            ZStack {
-                Rectangle().fill(.thinMaterial)
-                railTint
+            .padding(.horizontal, 10)
+
+            Spacer(minLength: 24)
+            VStack(alignment: .leading, spacing: 8) {
+                Label("本机技能库", systemImage: "internaldrive")
+                    .font(.system(size: 12, weight: .medium))
+                Text("共 \(model.totalSkillCount) 个 Skill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
-        }
-        .onHover { hovering in
-            if !hovering {
-                scheduleDismissal()
+            .padding(.horizontal, 22)
+            .padding(.bottom, 20)
+            Divider()
+            Button { model.openSettings() } label: {
+                HStack {
+                    Image(systemName: "gearshape")
+                    Text("设置")
+                    Spacer()
+                    Text("⌘,").foregroundStyle(.tertiary)
+                }
+                .font(.system(size: 13))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .help("设置（⌘,）")
         }
-    }
-
-    private var glassTint: Color {
-        switch (model.selectedElement, colorScheme) {
-        case (.wind?, .light): return Color(red: 0.82, green: 0.97, blue: 0.91).opacity(0.82)
-        case (.fire?, .light): return Color(red: 1.00, green: 0.88, blue: 0.84).opacity(0.82)
-        case (.water?, .light): return Color(red: 0.84, green: 0.91, blue: 1.00).opacity(0.82)
-        case (.mountain?, .light): return Color(red: 0.99, green: 0.93, blue: 0.78).opacity(0.82)
-        case (nil, .light): return .clear
-        case (.wind?, .dark): return Color(red: 0.06, green: 0.22, blue: 0.17).opacity(0.84)
-        case (.fire?, .dark): return Color(red: 0.25, green: 0.10, blue: 0.07).opacity(0.84)
-        case (.water?, .dark): return Color(red: 0.06, green: 0.14, blue: 0.29).opacity(0.84)
-        case (.mountain?, .dark): return Color(red: 0.22, green: 0.16, blue: 0.07).opacity(0.84)
-        case (nil, .dark): return .clear
-        @unknown default: return Color(nsColor: .windowBackgroundColor)
-        }
-    }
-
-    private var railTint: Color {
-        switch (model.selectedElement, colorScheme) {
-        case (.wind?, .light): return Color(red: 0.58, green: 0.88, blue: 0.76).opacity(0.46)
-        case (.fire?, .light): return Color(red: 1.00, green: 0.62, blue: 0.54).opacity(0.44)
-        case (.water?, .light): return Color(red: 0.51, green: 0.70, blue: 1.00).opacity(0.44)
-        case (.mountain?, .light): return Color(red: 0.85, green: 0.66, blue: 0.35).opacity(0.44)
-        case (nil, .light): return .clear
-        case (.wind?, .dark): return Color(red: 0.15, green: 0.54, blue: 0.42).opacity(0.56)
-        case (.fire?, .dark): return Color(red: 0.68, green: 0.24, blue: 0.16).opacity(0.56)
-        case (.water?, .dark): return Color(red: 0.18, green: 0.37, blue: 0.78).opacity(0.56)
-        case (.mountain?, .dark): return Color(red: 0.55, green: 0.38, blue: 0.15).opacity(0.56)
-        case (nil, .dark): return .clear
-        @unknown default: return Color(nsColor: .underPageBackgroundColor)
-        }
-    }
-
-    private func revealList(for element: Element) {
-        model.select(element)
-        apply(listPresentation.reveal())
-    }
-
-    private func scheduleDismissal() {
-        onPresentationChange(false)
+        .frame(maxHeight: .infinity)
+        .background(AppTheme.sidebar(for: colorScheme))
     }
 
     private func move(_ dragged: Element, before destination: Element) {
@@ -219,82 +167,126 @@ struct CoolSkillPanel: View {
         elementOrder = reordered
     }
 
-    private func synchronizePresentation(with selectedElement: Element?) {
-        let command = listPresentation.synchronize(hasSelection: selectedElement != nil)
-        if command == .show, let selectedElement {
-            model.select(selectedElement)
-        }
-        apply(command)
-    }
-
-    private func apply(_ command: SkillListPresentationCommand?) {
-        switch command {
-        case .show: onPresentationChange(true)
-        case .hide: onPresentationChange(false)
-        case nil: break
-        }
-    }
 }
 
 struct SkillListPanelContent: View {
     @ObservedObject var model: CoolSkillModel
-    let onHoverChanged: (Bool) -> Void
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(spacing: 0) {
-            if let selectedElement = model.selectedElement {
-                Text("\(selectedElement.chineseDefinition) · 共 \(model.visibleSkills.count) 个 Skill")
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                Divider().opacity(0.45)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(model.selectedElement?.chineseDefinition ?? "技能库")
+                        .font(.system(size: 25, weight: .bold))
+                    Text(elementDescription)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 16)
+                Button {
+                    model.refreshCatalog(generateChineseSummaries: true)
+                } label: {
+                    Label(model.isGeneratingSummaries ? "生成介绍中…" : "更新 Skills", systemImage: "arrow.clockwise")
+                }
+                .disabled(model.isRefreshing || model.isGeneratingSummaries)
+                .buttonStyle(.borderedProminent)
+                .tint(AppTheme.accent(for: colorScheme))
+                .controlSize(.regular)
+                .help("重新扫描技能，更新统计并生成缺失的中文介绍")
             }
-            if let selectedElement = model.selectedElement, !model.visibleSkills.isEmpty {
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 2) {
-                        ForEach(model.visibleSkills) { skill in
-                            SkillRow(skill: skill, summaryText: model.summaryText(for: skill),
-                                     accentColor: selectedElement.color(for: colorScheme)) {
-                                _ = model.invoke(skill)
-                            } moveAction: { element in
-                                model.moveSkill(skill.invocationName, to: element)
-                            } isKeyboardSelected: {
-                                model.isKeyboardSelected(skill)
+            .padding(.horizontal, 28)
+            .padding(.top, 26)
+            .padding(.bottom, 26)
+
+            HStack {
+                Text("\(model.visibleSkills.count) 个 Skill")
+                Spacer()
+                Label("最近调用优先", systemImage: "clock")
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 28)
+            .padding(.bottom, 12)
+            Divider().padding(.horizontal, 28)
+
+            if model.visibleSkills.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.system(size: 30, weight: .light))
+                        .foregroundStyle(.tertiary)
+                    Text(model.selectedElement == nil ? "选择一个元素" : "这个分类还没有 Skill")
+                        .font(.system(size: 17, weight: .semibold))
+                    Text(model.selectedElement == nil
+                         ? "从左侧选择风、火、水或山，浏览你的技能。"
+                         : "更新技能库，或在其他分类中右键移动 Skill 到这里。")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(model.visibleSkills) { skill in
+                                SkillRow(
+                                    skill: skill,
+                                    summaryText: model.summaryText(for: skill),
+                                    accentColor: skill.element.color(for: colorScheme)
+                                ) {
+                                    _ = model.invoke(skill)
+                                } moveAction: { element in
+                                    model.moveSkill(skill.invocationName, to: element)
+                                } isKeyboardSelected: {
+                                    model.isKeyboardSelected(skill)
+                                }
+                                .id(skill.id)
+                                Divider().padding(.leading, 56)
                             }
                         }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 8)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
+                    .onChange(of: model.keyboardSelectionIndex) { index in
+                        guard let index, model.visibleSkills.indices.contains(index) else { return }
+                        proxy.scrollTo(model.visibleSkills[index].id)
+                    }
+                    .onChange(of: model.selectedElement) { _ in
+                        if let first = model.visibleSkills.first { proxy.scrollTo(first.id, anchor: .top) }
+                    }
                 }
-            } else {
-                Color.clear
             }
+            if let message = model.storageMessage ?? model.summaryMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 12)
+            }
+            Divider()
+            HStack {
+                Label("点击技能，插入 Codex", systemImage: "arrow.up.right.square")
+                Spacer()
+                Text("右键更改分类")
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                listTint.opacity(0.82)
-            }
-        }
-        .onHover(perform: onHoverChanged)
+        .background(AppTheme.canvas(for: colorScheme))
     }
 
-    private var listTint: Color {
-        switch (model.selectedElement, colorScheme) {
-        case (.wind?, .light): return Color(red: 0.82, green: 0.97, blue: 0.91)
-        case (.fire?, .light): return Color(red: 1.00, green: 0.88, blue: 0.84)
-        case (.water?, .light): return Color(red: 0.84, green: 0.91, blue: 1.00)
-        case (.mountain?, .light): return Color(red: 0.99, green: 0.93, blue: 0.78)
-        case (.wind?, .dark): return Color(red: 0.06, green: 0.22, blue: 0.17)
-        case (.fire?, .dark): return Color(red: 0.25, green: 0.10, blue: 0.07)
-        case (.water?, .dark): return Color(red: 0.06, green: 0.14, blue: 0.29)
-        case (.mountain?, .dark): return Color(red: 0.22, green: 0.16, blue: 0.07)
-        default: return Color(nsColor: .windowBackgroundColor)
+    private var elementDescription: String {
+        switch model.selectedElement {
+        case .wind: return "连接 Agent、人与工具，让协作顺畅发生。"
+        case .fire: return "把想法付诸行动，完成代码与作品。"
+        case .water: return "探索未知，理解问题，找到方向。"
+        case .mountain: return "审视结果，守住质量与边界。"
+        case nil: return "按职责整理，随时找到合适的技能。"
         }
     }
 }
@@ -388,28 +380,34 @@ private struct ElementButton: View {
     let element: Element
     let isSelected: Bool
     let color: Color
-    let side: CGFloat
-    let glyphSide: CGFloat
+    let count: Int
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
-            ElementGlyph(element: element, color: color)
-                .frame(width: glyphSide, height: glyphSide)
-                .frame(width: side, height: side)
-                .background(isSelected ? color.opacity(0.13) : Color.clear)
-                .overlay {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(color.opacity(0.30), lineWidth: 1)
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .contentShape(Rectangle())
+            HStack(spacing: 10) {
+                ElementGlyph(element: element, color: color)
+                    .frame(width: 22, height: 22)
+                Text(element.chineseDefinition)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                Spacer(minLength: 4)
+                Text("\(count)")
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .foregroundStyle(isSelected ? AppTheme.accent(for: colorScheme) : AppTheme.ink(for: colorScheme))
+            .background(isSelected ? AppTheme.selection(for: colorScheme) : .clear,
+                        in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(element.displayName)
-        .help(element.displayName)
+        .accessibilityLabel("\(element.chineseDefinition)，\(count) 个 Skill")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .help("\(element.chineseDefinition)（⌘\((Element.allCases.firstIndex(of: element) ?? 0) + 1)）")
     }
 }
 
@@ -420,83 +418,72 @@ private struct SkillRow: View {
     let action: () -> Void
     let moveAction: (Element) -> Void
     let isKeyboardSelected: () -> Bool
-
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Button(action: action) {
-                HStack(alignment: .top, spacing: 10) {
-                    Circle()
-                        .fill(accentColor.opacity(0.86))
-                        .frame(width: 7, height: 7)
-                        .padding(.top, 5)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text(skill.name)
-                                .font(.system(size: 13, weight: .semibold))
-                                .lineLimit(1)
-                            if skill.usageCount > 0 {
-                                Text("\(skill.usageCount)")
-                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(Color.primary.opacity(0.045), in: Capsule())
-                                    .fixedSize()
-                            }
-                        }
-                        Text(summaryText)
-                            .font(.system(size: 9.5))
-                            .foregroundStyle(.secondary)
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 14) {
+                ElementGlyph(element: skill.element, color: accentColor)
+                    .frame(width: 22, height: 22)
+                    .frame(width: 36, height: 36)
+                    .background(accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text(skill.name)
+                            .font(.system(size: 14, weight: .semibold))
                             .lineLimit(1)
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock")
-                            Text(lastUsedText)
-                                .fontDesign(.monospaced)
+                            .help(skill.name)
+                        if skill.usageCount > 0 {
+                            Text("\(skill.usageCount) 次")
+                                .font(.system(size: 10))
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                                .fixedSize()
                         }
-                        .font(.system(size: 9))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
                     }
+                    Text(summaryText)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .help(summaryText)
+                    Text(lastUsedText)
+                        .font(.system(size: 10))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
-                .contentShape(Rectangle())
+                .frame(maxWidth: .infinity, alignment: .leading)
+                ImplicitInvocationIndicator(isOn: skill.allowsImplicitInvocation, tint: accentColor)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(isHovered ? accentColor : Color.secondary.opacity(0.5))
+                    .frame(width: 22)
             }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityLabel("\(skill.name)，\(summaryText)，最近调用：\(lastUsedText)")
-            ImplicitInvocationIndicator(
-                isOn: skill.allowsImplicitInvocation,
-                tint: accentColor
-            )
+            .padding(.horizontal, 10)
+            .padding(.vertical, 16)
+            .frame(minHeight: 104)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .frame(minHeight: 64)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .buttonStyle(.plain)
         .background(
-            isKeyboardSelected() ? accentColor.opacity(0.13) : (isHovered ? Color.primary.opacity(0.035) : Color.clear),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            isKeyboardSelected() ? accentColor.opacity(0.10) : (isHovered ? Color.primary.opacity(0.035) : .clear),
+            in: RoundedRectangle(cornerRadius: 10)
         )
-        .onDrag {
-            NSItemProvider(object: NSString(string: skill.invocationName))
-        }
+        .accessibilityLabel("插入 \(skill.name)，\(summaryText)，\(lastUsedText)，调用 \(skill.usageCount) 次")
+        .onDrag { NSItemProvider(object: NSString(string: skill.invocationName)) }
         .contextMenu {
             ForEach(Element.allCases) { element in
-                Button("移至\(element.displayName)") {
-                    moveAction(element)
-                }
-                .disabled(element == skill.element)
+                Button("移至\(element.displayName)") { moveAction(element) }
+                    .disabled(element == skill.element)
             }
         }
-        .onHover { hovering in
-            isHovered = hovering
-        }
+        .onHover { isHovered = $0 }
+        .help("插入 $\(skill.commandName) 到 Codex")
     }
 
     private var lastUsedText: String {
-        guard let lastUsedAt = skill.lastUsedAt else { return "从未调用" }
-        return Self.timestampFormatter.string(from: lastUsedAt)
+        guard let lastUsedAt = skill.lastUsedAt else { return "尚未调用" }
+        return "最近调用 " + Self.timestampFormatter.string(from: lastUsedAt)
     }
 
     private static let timestampFormatter: DateFormatter = {
@@ -513,80 +500,24 @@ private struct ImplicitInvocationIndicator: View {
     let isOn: Bool
     let tint: Color
 
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
-        ZStack(alignment: isOn ? .trailing : .leading) {
-            Capsule()
-                .fill(trackGradient)
-                .overlay {
-                    Capsule()
-                        .strokeBorder(
-                            isOn ? tint.opacity(0.64) : Color.primary.opacity(0.16),
-                            lineWidth: 0.75
-                        )
-                }
-                .overlay(alignment: isOn ? .leading : .trailing) {
-                    Image(systemName: isOn ? "sparkles" : "hand.raised.fill")
-                        .font(.system(size: 6.5, weight: .bold))
-                        .foregroundStyle(isOn ? Color.white.opacity(0.82) : Color.primary.opacity(0.34))
-                        .padding(.horizontal, 5.5)
-                }
-
-            Circle()
-                .fill(knobGradient)
-                .overlay {
-                    Circle()
-                        .fill(isOn ? tint.opacity(0.82) : Color.primary.opacity(0.22))
-                        .frame(width: 3.5, height: 3.5)
-                }
-                .padding(2)
-                .shadow(
-                    color: isOn ? tint.opacity(0.34) : Color.black.opacity(0.16),
-                    radius: 1.5,
-                    y: 0.8
-                )
-        }
-        .frame(width: 36, height: 20)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isOn)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("允许自动调用")
-        .accessibilityValue(isOn ? "开启" : "关闭")
-        .help(isOn ? "允许自动调用" : "仅允许手动调用")
-    }
-
-    private var trackGradient: LinearGradient {
-        if isOn {
-            return LinearGradient(
-                colors: [tint.opacity(0.62), tint.opacity(0.30)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-        return LinearGradient(
-            colors: [
-                Color.primary.opacity(colorScheme == .dark ? 0.15 : 0.09),
-                Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.04)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var knobGradient: LinearGradient {
-        LinearGradient(
-            colors: colorScheme == .dark
-                ? [Color.white.opacity(0.90), Color.white.opacity(0.62)]
-                : [Color.white, Color.white.opacity(0.84)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        Label(isOn ? "自动" : "手动", systemImage: isOn ? "sparkles" : "hand.raised")
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(isOn ? tint : .secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(isOn ? tint.opacity(0.08) : Color.primary.opacity(0.04), in: Capsule())
+            .fixedSize()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("允许自动调用")
+            .accessibilityValue(isOn ? "开启" : "关闭")
+            .help(isOn ? "允许自动调用（只读）" : "仅允许手动调用（只读）")
     }
 }
 
 struct SettingsSheet: View {
     @ObservedObject var model: CoolSkillModel
+    @Environment(\.colorScheme) private var colorScheme
     let onClose: (() -> Void)?
 
     init(model: CoolSkillModel, onClose: (() -> Void)? = nil) {
@@ -596,8 +527,8 @@ struct SettingsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("设置")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+            Text("kcoisga 设置")
+                .font(.system(size: 20, weight: .semibold))
             settingGroup {
                 Toggle(
                     "登录时启动",
@@ -606,7 +537,12 @@ struct SettingsSheet: View {
                         set: { model.setLaunchAtLogin($0) }
                     )
                 )
-                .padding(.vertical, 12)
+                .padding(.top, 12)
+                Text("按需打开，关闭主窗口即退出。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 12)
             }
             Text("系统权限")
                 .font(.system(size: 13, weight: .semibold))
@@ -651,6 +587,9 @@ struct SettingsSheet: View {
         }
         .padding(24)
         .frame(width: 390)
+        .background(AppTheme.sidebar(for: colorScheme))
+        .foregroundStyle(AppTheme.ink(for: colorScheme))
+        .tint(AppTheme.accent(for: colorScheme))
         .onAppear {
             model.refreshPermissions()
         }
