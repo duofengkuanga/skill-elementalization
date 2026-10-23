@@ -526,81 +526,134 @@ struct SettingsSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("kcoisga 设置")
-                .font(.system(size: 20, weight: .semibold))
-            settingGroup {
-                Toggle(
-                    "登录时启动",
-                    isOn: Binding(
-                        get: { model.launchAtLogin },
-                        set: { model.setLaunchAtLogin($0) }
-                    )
-                )
-                .padding(.top, 12)
-                Text("按需打开，关闭主窗口即退出。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.bottom, 12)
-            }
-            Text("系统权限")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
-            settingGroup {
-                PermissionRow(
-                    title: "辅助功能",
-                    detail: "向 Codex 输入框写入 Skill",
-                    isGranted: model.permissions.accessibilityGranted,
-                    action: { model.requestAccessibilityPermission() }
-                )
-            }
-            if let message = model.lifecycleMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
-            if let message = model.summaryMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            HStack {
-                Button(model.isGeneratingSummaries ? "正在生成中文介绍…" : "更新 Skills") {
-                    model.refreshCatalog(generateChineseSummaries: true)
-                }
-                .disabled(model.isGeneratingSummaries)
-                .help("新增或描述变化的 Skill 会使用 Codex 生成中文介绍")
-                Button("刷新权限") {
-                    model.refreshPermissions()
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("设置")
+                    .font(.system(size: 22, weight: .semibold))
                 Spacer()
-                Button("完成") {
-                    if let onClose {
-                        onClose()
-                    } else {
-                        model.closeSettings()
+                Text("kcoisga")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 20)
+
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("通用")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    settingGroup {
+                        HStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("登录时启动")
+                                    .font(.system(size: 13, weight: .medium))
+                                Text("登录 Mac 后自动打开 kcoisga。")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            Toggle("登录时启动", isOn: Binding(
+                                get: { model.launchAtLogin },
+                                set: { model.setLaunchAtLogin($0) }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .accessibilityLabel("登录时启动")
+                        }
+                        .padding(16)
+                        Divider().padding(.horizontal, 16)
+                        HStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("技能库")
+                                    .font(.system(size: 13, weight: .medium))
+                                Text("更新本机技能、使用统计和中文介绍。")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            Button(model.isGeneratingSummaries ? "生成中…" : "更新 Skills") {
+                                model.refreshCatalog(generateChineseSummaries: true)
+                            }
+                            .buttonStyle(SettingsButtonStyle())
+                            .disabled(model.isRefreshing || model.isGeneratingSummaries)
+                            .help("新增或描述变化的 Skill 会使用 Codex 生成中文介绍")
+                        }
+                        .padding(16)
                     }
                 }
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("系统权限")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("刷新状态") { model.refreshPermissions() }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppTheme.accent(for: colorScheme))
+                    }
+                    settingGroup {
+                        PermissionRow(
+                            title: "辅助功能",
+                            detail: "允许向 Codex 输入框插入 Skill。",
+                            isGranted: model.permissions.accessibilityGranted,
+                            action: { model.requestAccessibilityPermission() }
+                        )
+                    }
+                }
+                if let message = model.lifecycleMessage {
+                    Label(message, systemImage: "exclamationmark.circle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let message = model.summaryMessage {
+                    Text(message)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+
+            Divider()
+            HStack {
+                Text("关闭主窗口即退出。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("完成") {
+                    if let onClose { onClose() } else { model.closeSettings() }
+                }
+                .buttonStyle(SettingsButtonStyle(prominent: true))
                 .keyboardShortcut(.defaultAction)
             }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
         }
-        .padding(24)
-        .frame(width: 390)
+        .frame(width: 460)
+        .fixedSize(horizontal: false, vertical: true)
         .background(AppTheme.sidebar(for: colorScheme))
         .foregroundStyle(AppTheme.ink(for: colorScheme))
         .tint(AppTheme.accent(for: colorScheme))
-        .onAppear {
-            model.refreshPermissions()
-        }
+        .accentColor(AppTheme.accent(for: colorScheme))
+        .onAppear { model.refreshPermissions() }
     }
 
     private func settingGroup<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: 0, content: content)
-            .padding(.horizontal, 14)
-            .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        VStack(alignment: .leading, spacing: 0, content: content)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppTheme.canvas(for: colorScheme), in: RoundedRectangle(cornerRadius: 10))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+            }
     }
-
 }
 
 private struct PermissionRow: View {
@@ -610,25 +663,52 @@ private struct PermissionRow: View {
     let action: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: isGranted ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(isGranted ? .green : .secondary)
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(title)
+                    .font(.system(size: 13, weight: .medium))
                 Text(detail)
-                    .font(.caption)
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
             if isGranted {
-                Text("已允许")
-                    .font(.caption)
+                Label("已允许", systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             } else {
-                Button("授权", action: action)
-                    .controlSize(.small)
+                Button("前往授权", action: action)
+                    .buttonStyle(SettingsButtonStyle())
             }
         }
-        .padding(.vertical, 11)
+        .padding(16)
+    }
+}
+
+private struct SettingsButtonStyle: ButtonStyle {
+    var prominent = false
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .medium))
+            .frame(minWidth: 68)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .foregroundStyle(prominent
+                ? (colorScheme == .dark ? AppTheme.canvas(for: colorScheme) : .white)
+                : AppTheme.ink(for: colorScheme))
+            .background(
+                prominent ? AppTheme.accent(for: colorScheme) : Color.primary.opacity(0.045),
+                in: RoundedRectangle(cornerRadius: 7)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(Color.primary.opacity(prominent ? 0 : 0.09), lineWidth: 1)
+            }
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.45)
+            .contentShape(RoundedRectangle(cornerRadius: 7))
     }
 }

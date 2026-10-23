@@ -40,7 +40,7 @@ COOLSKILL_SIGNING_IDENTITY='Developer ID Application: …' Scripts/build-app.sh
 
 `Scripts/verify-lifecycle.sh` 验证标准可缩放窗口、普通窗口层级、无可见浮层，以及关闭窗口后进程退出。
 
-`Scripts/render-previews.sh` 生成深浅色、最小尺寸、长文本和空分类预览。
+`Scripts/render-previews.sh` 生成深浅色、最小尺寸、长文本和空分类预览，以及设置页的未授权、已授权、登录启动开启和失败提示状态。
 
 安装完整 Xcode 后还应运行：
 

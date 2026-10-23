@@ -36,3 +36,8 @@ swiftc \
 "$preview_build/render-preview" "$preview_build/list-stress-dark.png" list-stress-dark
 "$preview_build/render-preview" "$preview_build/list-wide-dark.png" list-wide-dark
 "$preview_build/render-preview" "$preview_build/list-wide-light.png" list-wide-light
+
+"$preview_build/render-preview" "$preview_build/settings-light.png" settings-light
+"$preview_build/render-preview" "$preview_build/settings-dark.png" settings-dark
+"$preview_build/render-preview" "$preview_build/settings-granted-dark.png" settings-granted-dark
+"$preview_build/render-preview" "$preview_build/settings-error-light.png" settings-error-light

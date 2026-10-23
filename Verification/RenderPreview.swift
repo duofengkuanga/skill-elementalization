@@ -16,8 +16,9 @@ private final class PreviewInserter: SkillInserting {
 }
 
 private struct PreviewPermissions: PermissionControlling {
+    var isGranted = false
     func snapshot() -> PermissionSnapshot {
-        PermissionSnapshot(accessibilityGranted: false)
+        PermissionSnapshot(accessibilityGranted: isGranted)
     }
 
     func requestAccessibility() {}
@@ -25,7 +26,15 @@ private struct PreviewPermissions: PermissionControlling {
 
 private final class PreviewLoginItem: LoginItemManaging {
     var isEnabled = false
-    func setEnabled(_ enabled: Bool) throws { isEnabled = enabled }
+    var shouldFail = false
+    func setEnabled(_ enabled: Bool) throws {
+        if shouldFail {
+            throw NSError(domain: "Preview", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "系统暂时无法保存登录启动设置。请检查应用是否已移到“应用程序”文件夹，然后重试。"
+            ])
+        }
+        isEnabled = enabled
+    }
 }
 
 @main
@@ -41,15 +50,21 @@ struct RenderPreview {
             .appendingPathComponent("coolskill-preview-\(UUID().uuidString)", isDirectory: true)
         let store = LocalStateStore(fileURL: root.appendingPathComponent("state.json"))
         let rendersSkillList = mode.hasPrefix("list-")
+        let rendersSettings = mode.hasPrefix("settings-")
+        let loginItem = PreviewLoginItem()
+        loginItem.shouldFail = mode.contains("error")
         let model = CoolSkillModel(
             skills: mode.contains("stress") ? stressSkills : previewSkills,
             catalog: SkillCatalog(roots: []),
             store: store,
             usageReconstructor: UsageReconstructor(roots: []),
             inserter: PreviewInserter(),
-            loginItemManager: PreviewLoginItem(),
-            permissionController: PreviewPermissions()
+            loginItemManager: loginItem,
+            permissionController: PreviewPermissions(isGranted: mode.contains("granted"))
         )
+        if rendersSettings && (mode.contains("granted") || mode.contains("error")) {
+            model.setLaunchAtLogin(true)
+        }
         if mode == "empty" {
             model.select(.mountain)
         } else if mode == "unselected" {
@@ -62,7 +77,9 @@ struct RenderPreview {
             ? NSSize(width: mode.contains("wide") ? 790 : 570, height: 620)
             : NSSize(width: mode.contains("stress") ? 780 : 1000, height: mode.contains("stress") ? 520 : 680)
         let rootView: AnyView
-        if rendersSkillList {
+        if rendersSettings {
+            rootView = AnyView(SettingsSheet(model: model).environment(\.colorScheme, colorScheme))
+        } else if rendersSkillList {
             rootView = AnyView(
                 SkillListPanelContent(model: model)
                     .frame(width: previewSize.width, height: previewSize.height)
@@ -76,7 +93,7 @@ struct RenderPreview {
             )
         }
         let hostingView = NSHostingView(rootView: rootView)
-        hostingView.frame = NSRect(origin: .zero, size: previewSize)
+        hostingView.frame = NSRect(origin: .zero, size: rendersSettings ? hostingView.fittingSize : previewSize)
         hostingView.layoutSubtreeIfNeeded()
 
         guard let bitmap = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
